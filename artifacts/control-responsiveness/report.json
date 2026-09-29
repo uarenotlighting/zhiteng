@@ -1,0 +1,182 @@
+{
+  "startedAt": "2026-09-28T06:51:58.277783Z",
+  "scope": "real annotation routes; no user database writes",
+  "checks": [
+    {
+      "check": "2d_rapid_position",
+      "x": 0.5585365853658537
+    },
+    {
+      "check": "2d_last_view_wins",
+      "view": "front",
+      "xy": [
+        0.27640156453715775,
+        0.400312744331509
+      ]
+    },
+    {
+      "check": "2d_hold_release_stable",
+      "xy": [
+        0.27640156453715775,
+        0.3798249394534602
+      ]
+    },
+    {
+      "check": "2d_inactive_hold_stops",
+      "xy": [
+        0.27640156453715775,
+        0.38567859799004556
+      ]
+    },
+    {
+      "check": "2d_save_retains_controls",
+      "saved": {
+        "view": "front",
+        "region": "full",
+        "use3d": false,
+        "x": 0.27640156453715775,
+        "y": 0.38567859799004556,
+        "localX": null,
+        "localY": null,
+        "localZ": null,
+        "depth": null,
+        "scale": 2.702380952380955,
+        "length": 2.6904761904761916,
+        "angle": 1.3089969389957474
+      }
+    },
+    {
+      "check": "3d_cold_layers_last_group_wins",
+      "state": {
+        "ready": true,
+        "layers": [
+          "skin",
+          "organ"
+        ],
+        "view": "front",
+        "region": "full",
+        "organGroup": "heart",
+        "markerScale": 1,
+        "lineLength": 1,
+        "lineAngle": 0,
+        "marker": {
+          "localX": 0,
+          "localY": 0.2,
+          "localZ": 0.1,
+          "depth": 0
+        },
+        "surfacePending": false,
+        "surfaceBuilds": 1,
+        "surfaceRequests": 3
+      }
+    },
+    {
+      "check": "3d_warm_layers_view_last_wins",
+      "state": {
+        "ready": true,
+        "layers": [
+          "skin",
+          "muscle"
+        ],
+        "view": "front",
+        "region": "full",
+        "organGroup": "heart",
+        "markerScale": 1,
+        "lineLength": 1,
+        "lineAngle": 0,
+        "marker": {
+          "localX": 0,
+          "localY": 0.2,
+          "localZ": 0.1,
+          "depth": 0
+        },
+        "surfacePending": false,
+        "surfaceBuilds": 1,
+        "surfaceRequests": 3
+      }
+    },
+    {
+      "check": "3d_burst_and_hold_release",
+      "state": {
+        "ready": true,
+        "layers": [
+          "skin",
+          "muscle"
+        ],
+        "view": "front",
+        "region": "full",
+        "organGroup": "heart",
+        "markerScale": 1,
+        "lineLength": 1,
+        "lineAngle": 0,
+        "marker": {
+          "localX": -0.000007439503447871846,
+          "localY": 0.21981540444985243,
+          "localZ": 0.09728896862014508,
+          "depth": 0.02
+        },
+        "surfacePending": false,
+        "surfaceBuilds": 1,
+        "surfaceRequests": 3
+      }
+    },
+    {
+      "check": "3d_save_immediately_flushes",
+      "saved": {
+        "view": "front",
+        "region": "full",
+        "use3d": true,
+        "x": 0.5,
+        "y": 0.4,
+        "localX": 0.0,
+        "localY": 0.2297,
+        "localZ": 0.0959,
+        "depth": 0.03,
+        "scale": 2.702380952380955,
+        "length": 2.6904761904761916,
+        "angle": 1.3089969389957474
+      },
+      "initialRenderer": {
+        "ready": true,
+        "layers": [
+          "skin",
+          "muscle"
+        ],
+        "view": "front",
+        "region": "full",
+        "organGroup": "all",
+        "markerScale": 1,
+        "lineLength": 1,
+        "lineAngle": 0,
+        "marker": {
+          "localX": 0,
+          "localY": 0.2,
+          "localZ": 0.1,
+          "depth": 0
+        },
+        "surfacePending": false,
+        "surfaceBuilds": 1,
+        "surfaceRequests": 3
+      }
+    },
+    {
+      "check": "3d_reopen_preserves_final",
+      "saved": {
+        "view": "front",
+        "region": "full",
+        "use3d": true,
+        "x": 0.5,
+        "y": 0.4,
+        "localX": 0.0,
+        "localY": 0.2297,
+        "localZ": 0.0959,
+        "depth": 0.03,
+        "scale": 2.702380952380955,
+        "length": 2.6904761904761916,
+        "angle": 1.3089969389957474
+      }
+    }
+  ],
+  "passed": true,
+  "finishedAt": "2026-09-28T06:52:18.026950Z"
+}

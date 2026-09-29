@@ -1,0 +1,55 @@
+{
+  "startedAt": "2026-09-28T12:42:27.929638Z",
+  "checks": [
+    {
+      "view": "front-before",
+      "point": [
+        0.38,
+        0.42
+      ]
+    },
+    {
+      "view": "turn-midpoint",
+      "scale": 1.0,
+      "initialScale": 1.0
+    },
+    {
+      "view": "rapid-turns-returned",
+      "scale": 1.0,
+      "point": [
+        0.38,
+        0.42
+      ]
+    },
+    {
+      "view": "left",
+      "point": [
+        0.4106910039113429,
+        0.41985926505082094
+      ]
+    },
+    {
+      "view": "back",
+      "point": [
+        0.62,
+        0.42
+      ]
+    },
+    {
+      "view": "front-returned",
+      "point": [
+        0.38,
+        0.42
+      ]
+    },
+    {
+      "view": "saved",
+      "point": [
+        0.38,
+        0.42
+      ]
+    }
+  ],
+  "passed": true,
+  "finishedAt": "2026-09-28T12:42:35.886005Z"
+}

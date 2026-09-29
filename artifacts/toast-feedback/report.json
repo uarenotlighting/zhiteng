@@ -1,0 +1,13 @@
+{
+  "variants": [
+    "text",
+    "success",
+    "failure",
+    "loading"
+  ],
+  "placement": "floating above bottom navigation",
+  "themes": [
+    "light",
+    "dark"
+  ]
+}

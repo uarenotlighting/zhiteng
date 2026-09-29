@@ -1,0 +1,16 @@
+{
+ "cards": 3,
+ "columns": 2,
+ "sameRegion": "upper",
+ "mixedRegion": "full",
+ "quickHasBodyImage": false,
+ "modelPreviews": [
+  "2D muscle",
+  "3D bone"
+ ],
+ "detailSections": [
+  "image",
+  "details",
+  "timeline"
+ ]
+}

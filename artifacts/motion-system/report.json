@@ -1,0 +1,13 @@
+{
+  "startedAt": "2026-09-28T07:45:27.537581Z",
+  "checks": [
+    "material tap overlays disabled globally",
+    "primary action breathing and shimmer are both disabled",
+    "primary action scales to 0.96 and releases to 1.0",
+    "detail route uses OpenContainer and swipe-back wrapper",
+    "detail route dismisses after a deliberate edge right-swipe",
+    "body-model route uses OpenContainer but ignores edge right-swipe",
+    "body-model OpenContainer returns the saved pain-spot result"
+  ],
+  "finishedAt": "2026-09-28T07:45:32.012273Z"
+}

@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  disabled
+  deleted
+}
+
+enum Platform {
+  weixin
+  douyin
+  xiaohongshu
+  apple
+  phone
+  passkey
+  dev
+}
+
+enum SubjectKind {
+  self
+  other
+}
+
+enum MembershipRole {
+  owner
+  caregiver
+  viewer
+}
+
+enum PainEntryStatus {
+  ongoing
+  completed
+}
+
+enum BodySide {
+  left
+  right
+  center
+  bilateral
+  unknown
+}
+
+enum BodyView {
+  front
+  back
+  side
+}
+
+enum BodyLayer {
+  surface
+  deep
+  muscle
+  bone
+  organ
+  unknown
+}
+
+enum GeometryType {
+  point
+  area
+}
+
+enum Certainty {
+  exact
+  approximate
+  unknown
+}
+
+enum TimelineEventType {
+  start
+  intensity_change
+  location_change
+  medication
+  relief
+  end
+  note
+}
+
+enum MedicationEffectResult {
+  recovered
+  relieved
+  no_effect
+}
+
+enum FocusAreaCreatedBy {
+  user
+  suggested
+}
+
+enum ReminderKind {
+  medication_followup
+  stale_entry
+  custom
+}
+
+enum ReminderStatus {
+  pending
+  sent
+  cancelled
+  failed
+}
+
+model User {
+  id               String     @id @default(uuid()) @db.Uuid
+  status           UserStatus @default(active)
+  mergedIntoUserId String?    @map("merged_into_user_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  identities       PlatformIdentity[]
+  refreshTokens    RefreshToken[]
+  subjectsOwned    Subject[]              @relation("SubjectOwner")
+  memberships      SubjectMembership[]
+  createdEntries   PainEntry[]            @relation("EntryCreator")
+  focusAreas       FocusArea[]
+  privacyConsents  PrivacyConsent[]
+  devices          Device[]
+  auditEvents      AuditEvent[]
+
+  @@index([mergedIntoUserId])
+  @@map("users")
+}
+
+model PlatformIdentity {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  platform        Platform
+  platformUserId  String   @map("platform_user_id")
+  platformUnionId String?  @map("platform_union_id")
+  boundAt         DateTime @default(now()) @map("bound_at") @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, platformUserId])
+  @@index([userId])
+  @@map("platform_identities")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model Subject {
+  id        String      @id @default(uuid()) @db.Uuid
+  ownerId   String      @map("owner_id") @db.Uuid
+  kind      SubjectKind @default(self)
+  displayName String?   @map("display_name")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner        User                @relation("SubjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships  SubjectMembership[]
+  painEntries  PainEntry[]
+
+  @@index([ownerId])
+  @@map("subjects")
+}
+
+model SubjectMembership {
+  id        String         @id @default(uuid()) @db.Uuid
+  subjectId String         @map("subject_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  role      MembershipRole @default(owner)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, userId])
+  @@map("subject_memberships")
+}
+
+model PrivacyConsent {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  policyVersion   String   @map("policy_version")
+  purpose         String
+  consentedAt     DateTime @default(now()) @map("consented_at") @db.Timestamptz(3)
+  sourcePlatform  Platform @map("source_platform")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("privacy_consents")
+}
+
+model Device {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  platform       Platform
+  deviceLabel    String?  @map("device_label")
+  pushToken      String?  @map("push_token")
+  timezone       String?
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("devices")
+}
+
+model PainEntry {
+  id                       String          @id @default(uuid()) @db.Uuid
+  subjectId                String          @map("subject_id") @db.Uuid
+  createdByUserId          String          @map("created_by_user_id") @db.Uuid
+  sourcePlatform           Platform        @map("source_platform")
+  status                   PainEntryStatus @default(ongoing)
+  startedAt                DateTime        @map("started_at") @db.Timestamptz(3)
+  endedAt                  DateTime?       @map("ended_at") @db.Timestamptz(3)
+  timezone                 String?
+  utcOffsetMinutes         Int?            @map("utc_offset_minutes")
+  suspectedTriggers        String[]        @default([]) @map("suspected_triggers")
+  accompanyingSymptoms     String[]        @default([]) @map("accompanying_symptoms")
+  notesCiphertext          String?         @map("notes_ciphertext")
+  completionState          Json?           @map("completion_state")
+  bodyModelVersion         String?         @map("body_model_version")
+  coordinateSystemVersion  String?         @map("coordinate_system_version")
+  taxonomyVersion          String?         @map("taxonomy_version")
+  revision                 BigInt          @default(1)
+  clientMutationId         String?         @unique @map("client_mutation_id") @db.Uuid
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?       @map("deleted_at") @db.Timestamptz(3)
+
+  subject      Subject                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdBy    User                    @relation("EntryCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  locations    PainLocation[]
+  timeline     TimelineEvent[]
+  medications  Medication[]
+  reliefActions ReliefAction[]
+  intensityObservations IntensityObservation[]
+  reminders    ScheduledReminder[]
+
+  @@index([subjectId, startedAt(sort: Desc)])
+  @@index([createdByUserId])
+  @@index([updatedAt])
+  @@index([deletedAt])
+  @@map("pain_entries")
+}
+
+model PainLocation {
+  id              String       @id @default(uuid()) @db.Uuid
+  painEntryId     String       @map("pain_entry_id") @db.Uuid
+  bodyPartId      String?      @map("body_part_id")
+  side            BodySide     @default(unknown)
+  view            BodyView     @default(front)
+  layer           BodyLayer    @default(unknown)
+  geometryType    GeometryType @default(point) @map("geometry_type")
+  normalizedX     Float?       @map("normalized_x")
+  normalizedY     Float?       @map("normalized_y")
+  radius          Float?
+  polygon         Json?
+  maskObjectKey   String?      @map("mask_object_key")
+  intensity0to10  Int?         @map("intensity_0_to_10")
+  intensityLabel  String?      @map("intensity_label")
+  sensations      String[]     @default([])
+  certainty       Certainty    @default(unknown)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  painEntry PainEntry @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+  relationsFrom LocationRelation[] @relation("RelationFrom")
+  relationsTo   LocationRelation[] @relation("RelationTo")
+
+  @@index([painEntryId])
+  @@map("pain_locations")
+}
+
+model LocationRelation {
+  id             String   @id @default(uuid()) @db.Uuid
+  fromLocationId String   @map("from_location_id") @db.Uuid
+  toLocationId   String   @map("to_location_id") @db.Uuid
+  type           String
+  notedAt        DateTime @default(now()) @map("noted_at") @db.Timestamptz(3)
+
+  fromLocation PainLocation @relation("RelationFrom", fields: [fromLocationId], references: [id], onDelete: Cascade)
+  toLocation   PainLocation @relation("RelationTo", fields: [toLocationId], references: [id], onDelete: Cascade)
+
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@map("location_relations")
+}
+
+model IntensityObservation {
+  id             String   @id @default(uuid()) @db.Uuid
+  painEntryId    String   @map("pain_entry_id") @db.Uuid
+  observedAt     DateTime @map("observed_at") @db.Timestamptz(3)
+  intensity0to10 Int      @map("intensity_0_to_10")
+  note           String?
+  clientMutationId String? @unique @map("client_mutation_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  painEntry PainEntry @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+
+  @@index([painEntryId, observedAt])
+  @@map("intensity_observations")
+}
+
+model TimelineEvent {
+  id               String            @id @default(uuid()) @db.Uuid
+  painEntryId      String            @map("pain_entry_id") @db.Uuid
+  occurredAt       DateTime          @map("occurred_at") @db.Timestamptz(3)
+  type             TimelineEventType
+  schemaVersion    Int               @default(1) @map("schema_version")
+  payload          Json              @default("{}")
+  clientMutationId String?           @unique @map("client_mutation_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  painEntry PainEntry @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+
+  @@index([painEntryId, occurredAt])
+  @@map("timeline_events")
+}
+
+model Medication {
+  id               String                   @id @default(uuid()) @db.Uuid
+  painEntryId      String                   @map("pain_entry_id") @db.Uuid
+  nameCiphertext   String                   @map("name_ciphertext")
+  dose             String?
+  unit             String?
+  takenAt          DateTime                 @map("taken_at") @db.Timestamptz(3)
+  effectDueAt      DateTime?                @map("effect_due_at") @db.Timestamptz(3)
+  effectCheckedAt  DateTime?                @map("effect_checked_at") @db.Timestamptz(3)
+  effectResult     MedicationEffectResult?  @map("effect_result")
+  notesCiphertext  String?                  @map("notes_ciphertext")
+  clientMutationId String?                  @unique @map("client_mutation_id") @db.Uuid
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  painEntry PainEntry @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+
+  @@index([painEntryId, takenAt])
+  @@map("medications")
+}
+
+model ReliefAction {
+  id               String   @id @default(uuid()) @db.Uuid
+  painEntryId      String   @map("pain_entry_id") @db.Uuid
+  type             String
+  startedAt        DateTime @map("started_at") @db.Timestamptz(3)
+  effectScore      Int?     @map("effect_score")
+  notesCiphertext  String?  @map("notes_ciphertext")
+  clientMutationId String?  @unique @map("client_mutation_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  painEntry PainEntry @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+
+  @@index([painEntryId])
+  @@map("relief_actions")
+}
+
+model FocusArea {
+  id            String              @id @default(uuid()) @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  name          String
+  regionIds     String[]            @default([]) @map("region_ids")
+  preferredSide BodySide?           @map("preferred_side")
+  preferredView BodyView?           @map("preferred_view")
+  zoomRect      Json?               @map("zoom_rect")
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdBy     FocusAreaCreatedBy  @default(user) @map("created_by")
+  revision      BigInt              @default(1)
+  clientMutationId String?          @unique @map("client_mutation_id") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?           @map("deleted_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+  @@map("focus_areas")
+}
+
+model ScheduledReminder {
+  id          String         @id @default(uuid()) @db.Uuid
+  painEntryId String?        @map("pain_entry_id") @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  kind        ReminderKind
+  dueAt       DateTime       @map("due_at") @db.Timestamptz(3)
+  status      ReminderStatus @default(pending)
+  payload     Json           @default("{}")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  painEntry PainEntry? @relation(fields: [painEntryId], references: [id], onDelete: Cascade)
+
+  @@index([status, dueAt])
+  @@index([userId])
+  @@map("scheduled_reminders")
+}
+
+model SyncTombstone {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  revision   BigInt
+  deletedAt  DateTime @default(now()) @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([userId, deletedAt])
+  @@unique([entityType, entityId])
+  @@map("sync_tombstones")
+}
+
+model AuditEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("audit_events")
+}

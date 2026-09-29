@@ -1,0 +1,18 @@
+{
+  "charts": [
+    "line",
+    "bar",
+    "pie",
+    "scatter"
+  ],
+  "ranges": [
+    "week",
+    "month",
+    "year",
+    "all"
+  ],
+  "records": 5,
+  "cacheComputations": 2,
+  "tooltipsEnabled": true,
+  "independentRanges": true
+}

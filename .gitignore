@@ -1,0 +1,24 @@
+# macOS and editor metadata
+.DS_Store
+**/.DS_Store
+.idea/
+**/.idea/
+*.iml
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependency and generated caches
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Preserve the former Sites repository metadata locally without nesting Git repos
+小程序线稿/.git.sites-backup/

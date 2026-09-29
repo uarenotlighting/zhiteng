@@ -1,0 +1,23 @@
+{
+  "name": "zhiteng",
+  "appid": "__UNI__3E2DAD6",
+  "description": "用身体地图记录疼痛，逐渐看懂自己的变化，也让就医表达更清楚。",
+  "versionName": "0.1.0",
+  "versionCode": "10",
+  "transformPx": false,
+  "uniStatistics": {
+    "enable": false
+  },
+  "mp-weixin": {
+    "appid": "wx5db44700460d56e4",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  },
+  "mp-toutiao": {
+    "appid": "tt72d3046eecab9cf601",
+    "usingComponents": true
+  },
+  "vueVersion": "3"
+}

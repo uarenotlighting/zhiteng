@@ -1,0 +1,382 @@
+{
+  "bodyModelVersion": "zhiteng_zanatomy_neutral_20260922_v24",
+  "coordinateSystemVersion": "zanatomy_ortho_v1",
+  "anatomicalMappingVersion": "zanatomy_surface_regions_v2",
+  "pipeline": "official-z-anatomy-plus-bodyparts3d",
+  "status": "generated",
+  "exportedAt": "2026-09-24T00:35:06.008135+00:00",
+  "layers": [
+    {
+      "id": "skin",
+      "file": "skin.glb",
+      "required": true,
+      "sourceCollection": "9: Regions of human body",
+      "meshCount": 1,
+      "bytes": 5988112,
+      "compression": "none"
+    },
+    {
+      "id": "muscle",
+      "file": "muscle.glb",
+      "required": false,
+      "sourceCollection": "4: Muscular system",
+      "meshCount": 669,
+      "bytes": 2157056,
+      "compression": "none"
+    },
+    {
+      "id": "bone",
+      "file": "bone.glb",
+      "required": false,
+      "sourceCollection": "1: Skeletal system",
+      "meshCount": 277,
+      "bytes": 1649604,
+      "compression": "none"
+    },
+    {
+      "id": "organ",
+      "file": "organ.glb",
+      "required": false,
+      "sourceCollection": "explicit-major-organ-allowlist",
+      "meshCount": 17,
+      "bytes": 3777392,
+      "compression": "none",
+      "sha256": "cb75e5c7080eba67e3a9630ed76f0931c0a48d531800202b17505bb3b0d7b1a5"
+    },
+    {
+      "id": "region",
+      "file": "region.glb",
+      "required": true,
+      "sourceCollection": "9: Regions of human body (transferred to neutral shell)",
+      "meshCount": 230,
+      "bytes": 1575428,
+      "compression": "none",
+      "purpose": "invisible surface-region raycast proxy"
+    }
+  ],
+  "views2d": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "regionCount": 230,
+  "license": "CC BY-SA 4.0",
+  "attribution": "Z-Anatomy; BodyParts3D / DBCLS; see ATTRIBUTION.md",
+  "excludedForLicense": [
+    "Z-Anatomy bundled kidney (replaced by BodyParts3D FMA7204/FMA7205)",
+    "inner ear",
+    "Brainder / white-matter reference structures"
+  ],
+  "geometryProfile": "gender-neutral-clinical-mannequin-v2",
+  "sensitiveAnatomyExcluded": true,
+  "removedSurfaceStructures": [
+    "urogenital surface patches",
+    "anal surface patches",
+    "sex-specific chest surface detail"
+  ],
+  "internalLayersAlignedToSkin": {
+    "legPivot": 0.98,
+    "legScale": 1.22,
+    "hipZ": 0.9868,
+    "footSpread": 0.1,
+    "note": "muscle/bone/organ share the skin shell's waist-down leg stretch and leg straddle"
+  },
+  "surfaceRegionSourceCount": 234,
+  "organLayer": {
+    "strategy": "explicit-stable-id-allowlist",
+    "meshCount": 17,
+    "groups": [
+      "heart",
+      "lung",
+      "hepatobiliary",
+      "digestive",
+      "urinary"
+    ],
+    "excludesReproductiveSystem": true,
+    "sensitiveNameAudit": "passed",
+    "bodyParts3dVersion": "4.0",
+    "bodyParts3dTree": "PART-OF, polygon reduction rate 99%",
+    "bodyPartsToAppTransform": [
+      [
+        0.000999781647,
+        0.0,
+        0.0,
+        0.000449869508
+      ],
+      [
+        0.0,
+        0.0,
+        0.0010877718,
+        0.18287272
+      ],
+      [
+        0.0,
+        -0.00093385659,
+        0.0,
+        -0.09011054
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "catalog": [
+      {
+        "id": "heart",
+        "nameZh": "心脏",
+        "groupId": "heart",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7088",
+        "sourceFileIds": [
+          "FJ2422",
+          "FJ2423",
+          "FJ2438",
+          "FJ2439",
+          "FJ3413",
+          "FJ3411",
+          "FJ2966"
+        ],
+        "vertices": 17504,
+        "triangles": 31336
+      },
+      {
+        "id": "right_lung",
+        "nameZh": "右肺",
+        "groupId": "lung",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7309",
+        "sourceFileIds": [],
+        "vertices": 2342,
+        "triangles": 4587
+      },
+      {
+        "id": "left_lung",
+        "nameZh": "左肺",
+        "groupId": "lung",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7310",
+        "sourceFileIds": [],
+        "vertices": 1825,
+        "triangles": 3607
+      },
+      {
+        "id": "trachea",
+        "nameZh": "气管",
+        "groupId": "lung",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7394",
+        "sourceFileIds": [],
+        "vertices": 470,
+        "triangles": 924
+      },
+      {
+        "id": "esophagus",
+        "nameZh": "食管",
+        "groupId": "digestive",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7131",
+        "sourceFileIds": [
+          "FJ2563"
+        ],
+        "vertices": 323,
+        "triangles": 578
+      },
+      {
+        "id": "liver",
+        "nameZh": "肝脏",
+        "groupId": "hepatobiliary",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7197",
+        "sourceFileIds": [],
+        "vertices": 1210,
+        "triangles": 2386
+      },
+      {
+        "id": "gallbladder",
+        "nameZh": "胆囊",
+        "groupId": "hepatobiliary",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7202",
+        "sourceFileIds": [],
+        "vertices": 72,
+        "triangles": 140
+      },
+      {
+        "id": "stomach",
+        "nameZh": "胃",
+        "groupId": "digestive",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7148",
+        "sourceFileIds": [],
+        "vertices": 964,
+        "triangles": 1841
+      },
+      {
+        "id": "pancreas",
+        "nameZh": "胰腺",
+        "groupId": "digestive",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7198",
+        "sourceFileIds": [],
+        "vertices": 510,
+        "triangles": 1016
+      },
+      {
+        "id": "spleen",
+        "nameZh": "脾脏",
+        "groupId": "digestive",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA7196",
+        "sourceFileIds": [],
+        "vertices": 131,
+        "triangles": 258
+      },
+      {
+        "id": "small_intestine",
+        "nameZh": "小肠",
+        "groupId": "digestive",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7200",
+        "sourceFileIds": [
+          "FJ2573",
+          "FJ2574",
+          "FJ2575",
+          "FJ2576",
+          "FJ2577",
+          "FJ2578",
+          "FJ2579",
+          "FJ2580",
+          "FJ2581",
+          "FJ2582",
+          "FJ2583",
+          "FJ2584",
+          "FJ2585",
+          "FJ2586",
+          "FJ2587",
+          "FJ2588",
+          "FJ2589",
+          "FJ2590",
+          "FJ2591",
+          "FJ2592",
+          "FJ2593",
+          "FJ2594",
+          "FJ2595",
+          "FJ2596",
+          "FJ2597",
+          "FJ2598",
+          "FJ2600",
+          "FJ2601",
+          "FJ2602",
+          "FJ2603",
+          "FJ2604",
+          "FJ2605",
+          "FJ2606",
+          "FJ2607",
+          "FJ2608",
+          "FJ2609",
+          "FJ2610",
+          "FJ2611",
+          "FJ2612",
+          "FJ2613",
+          "FJ2614",
+          "FJ2615",
+          "FJ2616",
+          "FJ2617",
+          "FJ2618",
+          "FJ2619",
+          "FJ2620",
+          "FJ2621",
+          "FJ2622",
+          "FJ2623",
+          "FJ2624",
+          "FJ2625",
+          "FJ2626",
+          "FJ2627",
+          "FJ2628"
+        ],
+        "vertices": 8484,
+        "triangles": 15770
+      },
+      {
+        "id": "large_intestine",
+        "nameZh": "大肠",
+        "groupId": "digestive",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7201",
+        "sourceFileIds": [
+          "FJ2566",
+          "FJ2567",
+          "FJ2568",
+          "FJ2569",
+          "FJ2570",
+          "FJ2571",
+          "FJ2572",
+          "FJ2599"
+        ],
+        "vertices": 51698,
+        "triangles": 59284
+      },
+      {
+        "id": "right_kidney",
+        "nameZh": "右肾",
+        "groupId": "urinary",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7204",
+        "sourceFileIds": [
+          "FJ3147"
+        ],
+        "vertices": 1163,
+        "triangles": 2310
+      },
+      {
+        "id": "left_kidney",
+        "nameZh": "左肾",
+        "groupId": "urinary",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA7205",
+        "sourceFileIds": [
+          "FJ3145"
+        ],
+        "vertices": 1497,
+        "triangles": 2982
+      },
+      {
+        "id": "right_ureter",
+        "nameZh": "右输尿管",
+        "groupId": "urinary",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA15571",
+        "sourceFileIds": [
+          "FJ3146"
+        ],
+        "vertices": 1132,
+        "triangles": 1924
+      },
+      {
+        "id": "left_ureter",
+        "nameZh": "左输尿管",
+        "groupId": "urinary",
+        "source": "BodyParts3D",
+        "sourceConceptId": "FMA15572",
+        "sourceFileIds": [
+          "FJ3144"
+        ],
+        "vertices": 1125,
+        "triangles": 2062
+      },
+      {
+        "id": "urinary_bladder",
+        "nameZh": "膀胱",
+        "groupId": "urinary",
+        "source": "Z-Anatomy",
+        "sourceConceptId": "FMA15900",
+        "sourceFileIds": [],
+        "vertices": 297,
+        "triangles": 590
+      }
+    ]
+  }
+}

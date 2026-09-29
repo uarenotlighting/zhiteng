@@ -1,0 +1,309 @@
+/* 知疼主题 Token：以 ../01_品牌配色与暗色模式.md 为唯一色值来源。
+ * 浅色 / 暗色都对齐 Cursor 聊天的中性灰阶；链接用蓝色。
+ * 不使用微信绿，也不使用左侧列表头像的绿 / 红。
+ * 人体填充、轮廓、关注色保持原值。
+ * 必须覆盖 TDesign 默认蓝色品牌色；TDesign 自身写在 prefers-color-scheme 里，
+ * 因此这里同时提供 page 级、主题 class 级和同名 media 覆盖。 */
+
+:root,
+page,
+.theme-light {
+  --color-bg-page: #fcfcfc;
+  --color-bg-surface: #eeeeee;
+  --color-bg-subtle: #e1e1e1;
+  --color-bg-elevated: #fcfcfc;
+  --color-bg-warm: #f7f7f7;
+  --color-primary: #141414;
+  --color-primary-pressed: #0a0a0a;
+  --color-primary-soft: #e8e8e8;
+  --color-on-primary: #ffffff;
+  --color-text-primary: #141414;
+  --color-text-secondary: #5e5e5e;
+  --color-text-tertiary: #8e8e8e;
+  --color-border: #e4e4e4;
+  --color-disabled: #c8c8c8;
+  --color-body-fill: #ededed;
+  --color-body-outline: #a3a3a3;
+  --color-body-focus: #e8e8e8;
+  --color-link: #1d66c0;
+  --color-pain-marker: #e64340;
+  --color-crosshair: rgba(60, 60, 60, 0.42);
+  --color-crosshair-halo: rgba(255, 255, 255, 0.6);
+  --color-action-ink: #141414;
+  --shadow-card: none;
+
+  /* 中性灰阶，覆盖 TDesign 默认蓝 / 旧微信绿 */
+  --td-brand-color-1: #f7f7f7;
+  --td-brand-color-2: #eeeeee;
+  --td-brand-color-3: #e1e1e1;
+  --td-brand-color-4: #c8c8c8;
+  --td-brand-color-5: #8e8e8e;
+  --td-brand-color-6: #5e5e5e;
+  --td-brand-color-7: #141414;
+  --td-brand-color-8: #0a0a0a;
+  --td-brand-color-9: #070707;
+  --td-brand-color-10: #000000;
+
+  --td-primary-color-1: var(--td-brand-color-1);
+  --td-primary-color-2: var(--td-brand-color-2);
+  --td-primary-color-3: var(--td-brand-color-3);
+  --td-primary-color-4: var(--td-brand-color-4);
+  --td-primary-color-5: var(--td-brand-color-5);
+  --td-primary-color-6: var(--td-brand-color-6);
+  --td-primary-color-7: var(--td-brand-color-7);
+  --td-primary-color-8: var(--td-brand-color-8);
+  --td-primary-color-9: var(--td-brand-color-9);
+  --td-primary-color-10: var(--td-brand-color-10);
+
+  --td-brand-color: var(--td-brand-color-7);
+  --td-brand-color-focus: var(--td-brand-color-1);
+  --td-brand-color-active: var(--td-brand-color-8);
+  --td-brand-color-disabled: var(--td-brand-color-4);
+  --td-brand-color-light: var(--td-brand-color-1);
+  --td-brand-color-light-active: var(--td-brand-color-2);
+
+  --td-text-color-anti: var(--color-on-primary);
+  --td-text-color-brand: var(--color-link);
+  --td-text-color-link: var(--color-link);
+  --td-success-color: var(--td-brand-color-7);
+  --td-success-color-5: var(--td-brand-color-7);
+  --td-button-primary-color: var(--color-on-primary);
+  --td-button-primary-bg-color: var(--color-primary);
+  --td-button-primary-border-color: var(--color-primary);
+  --td-button-primary-active-bg-color: var(--color-primary-pressed);
+  --td-button-primary-active-border-color: var(--color-primary-pressed);
+  --td-button-primary-disabled-color: var(--color-text-tertiary);
+  --td-button-primary-disabled-bg: var(--color-disabled);
+  --td-button-primary-disabled-border-color: var(--color-disabled);
+
+  /* 导航/底部栏：与页面主题 token 对齐，避免回落到 TDesign 默认白底 */
+  --td-bg-color-page: var(--color-bg-page);
+  --td-bg-color-container: var(--color-bg-surface);
+  --td-text-color-primary: var(--color-text-primary);
+  --td-text-color-secondary: var(--color-text-secondary);
+  --td-border-level-1-color: var(--color-border);
+  --td-navbar-bg-color: var(--color-bg-page);
+  --td-navbar-background: var(--color-bg-page);
+  --td-navbar-color: var(--color-text-primary);
+  --td-tab-bar-bg-color: var(--color-bg-page);
+  --td-tab-bar-border-color: var(--color-border);
+  --td-tab-bar-color: var(--color-text-secondary);
+  --td-tab-bar-active-color: var(--color-primary);
+  --td-tab-bar-active-bg: var(--color-primary-soft);
+}
+
+.theme-dark {
+  --color-bg-page: #070707;
+  --color-bg-surface: #262626;
+  --color-bg-subtle: #313131;
+  --color-bg-elevated: #2f2f2f;
+  --color-bg-warm: #111111;
+  --color-primary: #e8e8e8;
+  --color-primary-pressed: #d0d0d0;
+  --color-primary-soft: #313131;
+  --color-on-primary: #141414;
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #939393;
+  --color-text-tertiary: #6a6a6a;
+  --color-border: #333333;
+  --color-disabled: #3a3a3a;
+  --color-body-fill: #202020;
+  --color-body-outline: #666666;
+  --color-body-focus: #123522;
+  --color-link: #6aa6f5;
+  --color-pain-marker: #e64340;
+  --color-crosshair: rgba(255, 255, 255, 0.42);
+  --color-crosshair-halo: rgba(0, 0, 0, 0.45);
+  --color-action-ink: #e8e8e8;
+  --shadow-card: none;
+
+  --td-brand-color-1: #141414;
+  --td-brand-color-2: #262626;
+  --td-brand-color-3: #313131;
+  --td-brand-color-4: #3a3a3a;
+  --td-brand-color-5: #6a6a6a;
+  --td-brand-color-6: #939393;
+  --td-brand-color-7: #e8e8e8;
+  --td-brand-color-8: #d0d0d0;
+  --td-brand-color-9: #f7f7f7;
+  --td-brand-color-10: #fcfcfc;
+
+  --td-primary-color-1: var(--td-brand-color-1);
+  --td-primary-color-2: var(--td-brand-color-2);
+  --td-primary-color-3: var(--td-brand-color-3);
+  --td-primary-color-4: var(--td-brand-color-4);
+  --td-primary-color-5: var(--td-brand-color-5);
+  --td-primary-color-6: var(--td-brand-color-6);
+  --td-primary-color-7: var(--td-brand-color-7);
+  --td-primary-color-8: var(--td-brand-color-8);
+  --td-primary-color-9: var(--td-brand-color-9);
+  --td-primary-color-10: var(--td-brand-color-10);
+
+  --td-brand-color: var(--td-brand-color-7);
+  --td-brand-color-focus: var(--td-brand-color-2);
+  --td-brand-color-active: var(--td-brand-color-8);
+  --td-brand-color-disabled: var(--td-brand-color-4);
+  --td-brand-color-light: var(--td-brand-color-2);
+  --td-brand-color-light-active: var(--td-brand-color-3);
+
+  --td-text-color-anti: var(--color-on-primary);
+  --td-text-color-brand: var(--color-link);
+  --td-text-color-link: var(--color-link);
+  --td-success-color: var(--td-brand-color-7);
+  --td-success-color-5: var(--td-brand-color-7);
+  --td-button-primary-color: var(--color-on-primary);
+  --td-button-primary-bg-color: var(--color-primary);
+  --td-button-primary-border-color: var(--color-primary);
+  --td-button-primary-active-bg-color: var(--color-primary-pressed);
+  --td-button-primary-active-border-color: var(--color-primary-pressed);
+  --td-button-primary-disabled-color: var(--color-text-tertiary);
+  --td-button-primary-disabled-bg: var(--color-disabled);
+  --td-button-primary-disabled-border-color: var(--color-disabled);
+
+  --td-bg-color-page: var(--color-bg-page);
+  --td-bg-color-container: var(--color-bg-surface);
+  --td-text-color-primary: var(--color-text-primary);
+  --td-text-color-secondary: var(--color-text-secondary);
+  --td-border-level-1-color: var(--color-border);
+  --td-navbar-bg-color: var(--color-bg-page);
+  --td-navbar-background: var(--color-bg-page);
+  --td-navbar-color: var(--color-text-primary);
+  --td-tab-bar-bg-color: var(--color-bg-elevated);
+  --td-tab-bar-border-color: var(--color-border);
+  --td-tab-bar-color: var(--color-text-secondary);
+  --td-tab-bar-active-color: var(--color-primary);
+  --td-tab-bar-active-bg: var(--color-primary-soft);
+}
+
+@media (prefers-color-scheme: light) {
+  page,
+  .page {
+    --td-brand-color-1: #f7f7f7;
+    --td-brand-color-2: #eeeeee;
+    --td-brand-color-3: #e1e1e1;
+    --td-brand-color-4: #c8c8c8;
+    --td-brand-color-5: #8e8e8e;
+    --td-brand-color-6: #5e5e5e;
+    --td-brand-color-7: #141414;
+    --td-brand-color-8: #0a0a0a;
+    --td-brand-color-9: #070707;
+    --td-brand-color-10: #000000;
+    --td-primary-color-1: var(--td-brand-color-1);
+    --td-primary-color-2: var(--td-brand-color-2);
+    --td-primary-color-3: var(--td-brand-color-3);
+    --td-primary-color-4: var(--td-brand-color-4);
+    --td-primary-color-5: var(--td-brand-color-5);
+    --td-primary-color-6: var(--td-brand-color-6);
+    --td-primary-color-7: var(--td-brand-color-7);
+    --td-primary-color-8: var(--td-brand-color-8);
+    --td-primary-color-9: var(--td-brand-color-9);
+    --td-primary-color-10: var(--td-brand-color-10);
+    --td-brand-color: var(--td-brand-color-7);
+    --td-brand-color-focus: var(--td-brand-color-1);
+    --td-brand-color-active: var(--td-brand-color-8);
+    --td-brand-color-disabled: var(--td-brand-color-4);
+    --td-brand-color-light: var(--td-brand-color-1);
+    --td-brand-color-light-active: var(--td-brand-color-2);
+    --td-text-color-anti: #ffffff;
+    --td-text-color-brand: #1d66c0;
+    --td-text-color-link: #1d66c0;
+    --td-success-color: #141414;
+    --td-button-primary-color: #ffffff;
+    --td-button-primary-bg-color: #141414;
+    --td-button-primary-border-color: #141414;
+    --td-button-primary-active-bg-color: #0a0a0a;
+    --td-button-primary-active-border-color: #0a0a0a;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  page,
+  .page {
+    --td-brand-color-1: #141414;
+    --td-brand-color-2: #262626;
+    --td-brand-color-3: #313131;
+    --td-brand-color-4: #3a3a3a;
+    --td-brand-color-5: #6a6a6a;
+    --td-brand-color-6: #939393;
+    --td-brand-color-7: #e8e8e8;
+    --td-brand-color-8: #d0d0d0;
+    --td-brand-color-9: #f7f7f7;
+    --td-brand-color-10: #fcfcfc;
+    --td-primary-color-1: var(--td-brand-color-1);
+    --td-primary-color-2: var(--td-brand-color-2);
+    --td-primary-color-3: var(--td-brand-color-3);
+    --td-primary-color-4: var(--td-brand-color-4);
+    --td-primary-color-5: var(--td-brand-color-5);
+    --td-primary-color-6: var(--td-brand-color-6);
+    --td-primary-color-7: var(--td-brand-color-7);
+    --td-primary-color-8: var(--td-brand-color-8);
+    --td-primary-color-9: var(--td-brand-color-9);
+    --td-primary-color-10: var(--td-brand-color-10);
+    --td-brand-color: var(--td-brand-color-7);
+    --td-brand-color-focus: var(--td-brand-color-2);
+    --td-brand-color-active: var(--td-brand-color-8);
+    --td-brand-color-disabled: var(--td-brand-color-4);
+    --td-brand-color-light: var(--td-brand-color-2);
+    --td-brand-color-light-active: var(--td-brand-color-3);
+    --td-text-color-anti: #141414;
+    --td-text-color-brand: #6aa6f5;
+    --td-text-color-link: #6aa6f5;
+    --td-success-color: #e8e8e8;
+    --td-button-primary-color: #141414;
+    --td-button-primary-bg-color: #e8e8e8;
+    --td-button-primary-border-color: #e8e8e8;
+    --td-button-primary-active-bg-color: #d0d0d0;
+    --td-button-primary-active-border-color: #d0d0d0;
+  }
+}
+
+.page-root {
+  min-height: 100vh;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+.page-shell {
+  box-sizing: border-box;
+  padding: 24rpx 28rpx calc(32rpx + env(safe-area-inset-bottom));
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+/* 带自定义 TabBar 的页面：底部安全区由 TabBar 占位承担，避免重复叠加 */
+.page-shell--tabbar {
+  padding-bottom: 32rpx;
+}
+
+.surface-card {
+  box-sizing: border-box;
+  border: 1rpx solid var(--color-border);
+  border-radius: 28rpx;
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.section-title {
+  display: block;
+  margin-bottom: 10rpx;
+  color: var(--color-text-primary);
+  font-size: 34rpx;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.section-caption {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.tap-card {
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.tap-card:active {
+  opacity: 0.82;
+  transform: scale(0.99);
+}

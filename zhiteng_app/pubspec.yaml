@@ -1,0 +1,53 @@
+name: zhiteng_app
+description: "知疼 — iOS/Android 疼痛记录 App（Flutter）"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.5
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  intl: 0.20.2
+  uuid: ^4.6.0
+  webview_flutter: ^4.14.1
+  sqflite: 2.4.2+1
+  fl_chart: ^1.2.0
+  animations: ^2.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/web/body3d.html
+    - assets/web/libs/
+    - assets/web/libs/draco/
+    - assets/models/manifest.json
+    - assets/models/skin.glb
+    - assets/models/region.glb
+    - assets/models/muscle.glb
+    - assets/models/bone.glb
+    - assets/models/organ.glb
+    - assets/models/2d/
+    - assets/models/2d/layers/skin/
+    - assets/models/2d/layers/muscle/
+    - assets/models/2d/layers/bone/
+    - assets/models/2d/layers/organ/
+    - assets/models/2d/turn/
+    - assets/models/README.md

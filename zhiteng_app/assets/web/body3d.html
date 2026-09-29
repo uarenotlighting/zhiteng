@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>知疼 3D Body</title>
+  <script>
+    // Apply the stage color before the first paint. Flutter passes ?stage=rrggbb
+    // so dark mode does not flash the light paper while the page loads.
+    (function () {
+      var raw = new URLSearchParams(location.search).get('stage') || 'fcfcfc';
+      raw = String(raw).replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(raw)) raw = 'fcfcfc';
+      var dark = raw.toLowerCase() !== 'fcfcfc';
+      var root = document.documentElement;
+      window.applyStageChrome = function (isDark) {
+        root.style.setProperty('--stage-color', isDark ? '#2f2f2f' : '#fcfcfc');
+        root.style.setProperty(
+          '--stage-line',
+          isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.075)'
+        );
+        root.style.setProperty(
+          '--depth-bg',
+          isDark ? 'rgba(38, 38, 38, 0.94)' : 'rgba(255, 255, 255, 0.94)'
+        );
+        root.style.setProperty('--depth-border', isDark ? '#333333' : '#e4e4e4');
+        root.style.setProperty('--depth-color', isDark ? '#e8e8e8' : '#444444');
+        root.style.setProperty('--status-color', isDark ? '#939393' : '#8a8a8a');
+        root.style.setProperty(
+          '--crosshair',
+          isDark ? 'rgba(255, 255, 255, 0.42)' : 'rgba(60, 60, 60, 0.42)'
+        );
+        root.style.setProperty(
+          '--crosshair-halo',
+          isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.6)'
+        );
+      };
+      window.applyStageChrome(dark);
+      if (raw.toLowerCase() !== 'fcfcfc' && raw.toLowerCase() !== '2f2f2f') {
+        root.style.setProperty('--stage-color', '#' + raw);
+      }
+    })();
+  </script>
+  <style>
+    /* Stage: near-white paper with a faint drafting grid (疼痛坐标 look). */
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background-color: var(--stage-color, #fcfcfc);
+      background-image:
+        linear-gradient(to right, var(--stage-line, rgba(0, 0, 0, 0.075)) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--stage-line, rgba(0, 0, 0, 0.075)) 1px, transparent 1px);
+      background-size: var(--stage-grid-size, 24px) var(--stage-grid-size, 24px);
+      background-position: center center;
+    }
+    #c { width: 100%; height: 100%; display: block; touch-action: none; }
+    #status { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: var(--status-color, #8a8a8a); font: 12px/1.4 -apple-system, sans-serif; pointer-events: none; }
+    /* Flutter controls are drawn above this WebView, but a platform view can
+       still receive the same tap. These boxes sit on that copy of the event
+       so it never reaches the canvas and places a point under the control. */
+    #pointer-shields { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+    #pointer-shields > div { position: absolute; pointer-events: auto; touch-action: none; }
+    #depth-view { position: absolute; right: 12px; left: auto; bottom: 220px; display: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--depth-border, #e4e4e4); border-radius: 12px; background: var(--depth-bg, rgba(255,255,255,0.94)); color: var(--depth-color, #444); font: 13px -apple-system, sans-serif; z-index: 5; -webkit-appearance: none; appearance: none; }
+    /* CAD-style crosshair through the marker (疼痛坐标 full-body version):
+       hairlines across the whole stage plus a small red reticle. UI only. */
+    #crosshair { position: absolute; inset: 0; pointer-events: none; display: none; }
+    #crosshair .ch-h { position: absolute; left: 0; right: 0; height: 1px; background: var(--crosshair, rgba(60, 60, 60, 0.42)); }
+    #crosshair .ch-v { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--crosshair, rgba(60, 60, 60, 0.42)); }
+    #crosshair .ch-box { position: absolute; width: 28px; height: 28px; border: 1.5px solid #e64340; border-radius: 2px; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px var(--crosshair-halo, rgba(255, 255, 255, 0.6)); }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="crosshair"><div class="ch-h"></div><div class="ch-v"></div><div class="ch-box"></div></div>
+  <div id="pointer-shields"></div>
+  <button id="depth-view" type="button" aria-label="从侧面查看痛点深度">侧看深度</button>
+  <div id="status">加载 3D 人体模型…</div>
+  <script>
+    window.addEventListener('error', function (event) {
+      window.ZHITENG_LAST_ERROR = event.message || '3D 运行库加载失败';
+      if (window.ZhitengChannel && window.ZhitengChannel.postMessage) {
+        window.ZhitengChannel.postMessage(JSON.stringify({ type: 'error', payload: { message: event.message || '3D 运行库加载失败' } }));
+      }
+    });
+    window.addEventListener('unhandledrejection', function (event) {
+      window.ZHITENG_LAST_ERROR = String(event.reason || '3D 模型加载失败');
+      if (window.ZhitengChannel && window.ZhitengChannel.postMessage) {
+        window.ZhitengChannel.postMessage(JSON.stringify({ type: 'error', payload: { message: String(event.reason || '3D 模型加载失败') } }));
+      }
+    });
+  </script>
+  <script src="./libs/zhiteng-three-bundle.js"></script>
+  <script>
+    const { THREE, OrbitControls, GLTFLoader, DRACOLoader } = window.ZhitengThree;
+
+    // Version comes from assets/models/manifest.json via the Flutter bridge.
+    let modelVersion = window.ZHITENG_MODEL_VERSION || 'zhiteng_zanatomy_neutral_unknown';
+
+    // Monochrome clinical palette measured from the reference product:
+    // high-key, low-contrast, slightly cool white-grey. The skin is a glass
+    // shell drawn last so anything inside it (bone, muscle, the marker) is
+    // seen through it and tinted; anything outside it stays fully saturated.
+    // Measured against the reference full-body frame: body mean #E2E5E8,
+    // luminance p10/p50/p90 ≈ 212/231/245 over a #FCFCFC stage.
+    const STYLE = {
+      skin:   { color: 0xf2f5f7, roughness: 1.0,  opacity: 0.36, opacityOrgan: 0.18, opacityAlone: 0.60, renderOrder: 20 },
+      // Light peach: reads as flesh through the glass skin, stays high-key.
+      muscle: { color: 0xe2b09a, roughness: 0.95 },
+      bone:   { color: 0xf2f2f0, roughness: 0.90 },
+      organ:  { color: 0xd9dfe3, roughness: 0.90 },
+      marker: { color: 0xe64340, emissive: 0x7a1a16, radius: 0.014, haloRadius: 0.024, haloOpacity: 0.2, renderOrder: 10 },
+    };
+    // Quiet, low-saturation clinical colours keep neighbouring organs
+    // distinguishable without turning the view into a vivid anatomy atlas.
+    const ORGAN_STYLE = {
+      heart:         { color: 0xc98585, roughness: 0.82 },
+      lung:          { color: 0xc7a8a5, roughness: 0.88 },
+      hepatobiliary: { color: 0xb9a477, roughness: 0.86 },
+      digestive:     { color: 0xc8aa86, roughness: 0.88 },
+      urinary:       { color: 0x9fafc0, roughness: 0.86 },
+    };
+
+    const statusEl = document.getElementById('status');
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.01, 100);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.minDistance = 0.35;
+    controls.maxDistance = 5;
+    // Ambient-dominant lighting: soft form, no hard shadows, silhouettes
+    // darken slightly through Lambert falloff which reads as the glass rim.
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd6dbdf, 2.6));
+    // The key light rides with the camera (upper right, behind the viewer),
+    // so the body reads the same from every side; nothing is ever backlit.
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    key.position.set(2, 3, 3);
+    scene.add(camera);
+    camera.add(key);
+    scene.add(key.target);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+    fill.position.set(-2, 1, -2);
+    scene.add(fill);
+    // Camera actually used for drawing; the 2D export swaps in an
+    // orthographic one (see RENDER2D below).
+    let renderCamera = camera;
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('./libs/draco/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+    const raycaster = new THREE.Raycaster();
+    // Independent from picking/surface-line probes, which change ray/far.
+    const skinRaycaster = new THREE.Raycaster();
+    const regionRaycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const box = new THREE.Box3();
+    const modelUrls = new Map();
+    const roots = new Map();
+    const loading = new Map();
+    let surfaceRegionRoot = null;
+    let surfaceRegionLoading = null;
+    let anatomyRevision = 0;
+    let markerRayCache = null;
+    let layerRequestId = 0;
+    let layerRequest = null;
+    // Loading a layer is asynchronous; only the latest explicit camera
+    // action may focus it after the load completes.
+    let cameraRequestId = 0;
+    let organRequestId = 0;
+    // Layers are stacked, like the reference: the glass skin is always on and
+    // the anatomical layers are toggled underneath it. Deepest first: when the
+    // marker is pushed below the skin, the innermost layer whose surface it
+    // has passed is the one it is reported to be in.
+    const PICK_ORDER = ['organ', 'bone', 'muscle', 'skin'];
+    // Runtime boot is deliberately skin-only. The Flutter host asks for the
+    // default anatomy layers after the skin has produced a real WebGL frame.
+    const DEFAULT_LAYERS = ['skin'];
+    const RENDER2D_LAYERS = ['skin', 'muscle', 'bone'];
+    let visibleLayers = new Set(DEFAULT_LAYERS);
+    let activeOrganGroup = 'all';
+    let isolateOrganGroup = false;
+    let region = 'full';
+    let marker = null;
+    // Depth below the original skin entry, along the placement ray (m).
+    // Orbiting only changes the view, never this anatomical coordinate frame.
+    let markerDepth = 0;
+    let markerAvailableDepth = 0;
+    // User-adjustable indicator size (1 = STYLE.marker.radius) and pain shape.
+    let markerScale = 0.5; // painMarkerMinScale in body_model.dart
+    let markerShape = 'point';
+    // Line pain: arc length as a multiple of the 16 cm base, separate from thickness.
+    let lineLength = 1;
+    // Radians around the outward skin normal. 0 follows the body axis.
+    // Positive is counter-clockwise when looking at the surface. Kept in
+    // lockstep with bodyLineHeading in schematic_body_locator.dart.
+    let lineAngle = 0;
+    // Skin point the line is draped on, and the mesh that draws it (world space,
+    // not a child of the marker, so thickness and length stay independent).
+    let lineAnchor = null;
+    // Inward ray used by the current placement. Keeping this separately from
+    // the camera is important: rotating the body must not silently redefine
+    // the saved depth or move the marker when a layer is toggled.
+    let markerInward = null;
+    let markerSkinObject = null;
+    let markerLocator = null;
+    let markerHalo = null;
+    let depthGuide = null;
+    let depthEntryRing = null;
+    // Line, patch and radiating marks draped on the skin (world space). Not a
+    // child of the marker: the marker transform would apply twice.
+    let surfaceMark = null;
+    let surfaceRevision = 0;
+    let surfaceBuiltRevision = 0;
+    let surfaceJob = null;
+    let surfaceBuilds = 0;
+    let lineSampleCache = null;
+    let viewerActive = true;
+    let skinFirstFramePending = false;
+    let crosshairOn = true;
+    let viewAnim = null;
+    let lastView = null;
+    // True after the skin has been framed once. Layer toggles must not frame again.
+    let cameraSettled = false;
+    // Orbit, pinch, zoom buttons, or an explicit side (正面/背面/左/右).
+    let userAdjustedView = false;
+    // Full-body distance is the visual 1x reference. The CSS drafting grid
+    // follows camera dolly/region framing so nearby views have larger cells
+    // and distant views have smaller cells, instead of being screen-fixed.
+    let gridReferenceDistance = null;
+    const GRID_BASE_SIZE = 24;
+    let lastGridSize = GRID_BASE_SIZE;
+    // Viewport height the current framing was computed for. A hidden WebView
+    // reports ~0, and framing against that makes the grid cells too large
+    // until the next region change.
+    let framedViewHeight = 0;
+    let stageTopChrome = 56;
+    let stageBottomChrome = 36;
+    // Extra control rectangles in canvas CSS pixels, on top of the chrome bands.
+    // Flutter measures the depth pad, sliders and side tools, which are not
+    // always a full-width band.
+    let placementShields = [];
+    // Camera distance that last filled the clear band, before pinch / +/- zoom.
+    // Chrome changes scale from this baseline so a dock expand shrinks the
+    // body the same way 2D does, without throwing away the user's zoom.
+    let fitDistance = 0;
+    // Organ-group or skeleton focus aims at that subject, not the body-region
+    // frame. A later dock expand must keep this aim in the clear band
+    // instead of calling frameRegion, which recentres the whole body and
+    // throws the subject off the top of the screen.
+    let organFocusActive = false;
+    // 'organ' keeps zoom and only slides. 'bone' refits the skeleton into
+    // the band so the whole figure stays visible in the middle.
+    let heldFocusKind = null;
+    // Screen fraction (0 top, 1 bottom) the held aim was last placed at.
+    let organBandFraction = 0.5;
+    // Pinch or +/- zoom. Pain-mode switches change dock height and must not
+    // dolly a scale the user just chose.
+    let userZoomed = false;
+    let placementEnabled = true;
+    let gestureDistance = 0;
+    // Dragging or pinching is a pose the next chip must not throw away.
+    controls.addEventListener('start', () => {
+      cameraRequestId++;
+      viewAnim = null;
+      userAdjustedView = true;
+      gestureDistance = camera.position.distanceTo(controls.target);
+    });
+    controls.addEventListener('end', () => {
+      const distance = camera.position.distanceTo(controls.target);
+      if (gestureDistance > 0 &&
+          Math.abs(distance - gestureDistance) / gestureDistance > 0.015) {
+        userZoomed = true;
+      }
+    });
+    // Side chosen before the mesh existed; applied by the first real frame.
+    let pendingView = null;
+    const crosshairEl = document.getElementById('crosshair');
+    const crosshairH = crosshairEl.querySelector('.ch-h');
+    const crosshairV = crosshairEl.querySelector('.ch-v');
+    const crosshairBox = crosshairEl.querySelector('.ch-box');
+    const depthViewButton = document.getElementById('depth-view');
+    // Anatomical sides. The body faces +Z; its own left hand is at +X, so a
+    // camera on +X looks at the body's LEFT side. (Blender master: faces -Y,
+    // `.l` structures at +X, exported +Y-up.)
+    const VIEW_DIRECTIONS = {
+      front: [0, 0, 1],
+      back: [0, 0, -1],
+      left: [1, 0, 0],
+      right: [-1, 0, 0],
+    };
+    const SURFACE_EPSILON = 0.004;
+
+    function post(type, payload) {
+      const message = JSON.stringify({ type, payload });
+      if (window.ZhitengChannel && window.ZhitengChannel.postMessage) window.ZhitengChannel.postMessage(message);
+    }
+
+    function resize() {
+      const width = canvas.clientWidth || window.innerWidth;
+      const height = canvas.clientHeight || window.innerHeight;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / Math.max(height, 1);
+      camera.updateProjectionMatrix();
+      if (renderCamera.isOrthographicCamera) {
+        // Keep the 2D export frustum square-pixel at the current aspect.
+        const halfW = renderCamera.top * width / Math.max(height, 1);
+        renderCamera.left = -halfW;
+        renderCamera.right = halfW;
+        renderCamera.updateProjectionMatrix();
+      }
+      reframeIfStageResized();
+      layoutPointerShields();
+    }
+
+    function reframeIfStageResized() {
+      const viewH = canvas.clientHeight || 0;
+      if (viewH < 64 || !frameRoot()) return;
+      if (framedViewHeight && Math.abs(viewH - framedViewHeight) < 8) return;
+      if (userAdjustedView && framedViewHeight >= 64) return;
+      frameRegion(region, userAdjustedView || !!pendingView);
+    }
+
+    function updateStageGrid() {
+      if (!gridReferenceDistance || renderCamera.isOrthographicCamera) return;
+      const distance = camera.position.distanceTo(controls.target);
+      if (!Number.isFinite(distance) || distance <= 0) return;
+      const size = THREE.MathUtils.clamp(
+        GRID_BASE_SIZE * gridReferenceDistance / distance,
+        6,
+        160
+      );
+      if (Math.abs(size - lastGridSize) < 0.05) return;
+      lastGridSize = size;
+      document.documentElement.style.setProperty('--stage-grid-size', `${size.toFixed(2)}px`);
+    }
+
+    // Subtle Fresnel: the shell gets a little denser and cooler at grazing
+    // angles, matching the darker outline of the reference without resorting
+    // to double-sided rendering (which would show the face through the skull).
+    function addSkinRim(material) {
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          [
+            '#include <dithering_fragment>',
+            'float ztRim = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 2.5);',
+            'gl_FragColor.a = clamp(gl_FragColor.a + ztRim * 0.35, 0.0, 1.0);',
+            'gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.72, 0.77, 0.81), ztRim * 0.55);',
+          ].join('\n')
+        );
+      };
+      material.customProgramCacheKey = () => 'zhiteng-skin-rim';
+    }
+
+    // Same muscle on the left and right shares one tint. Neighbouring
+    // muscles shift within the light-peach range so each belly reads apart.
+    function muscleTint(name) {
+      const key = String(name || '')
+        .replace(/\.(l|r)(\.\d+)?$/i, '')
+        .replace(/\.\d+$/, '')
+        .toLowerCase();
+      let hash = 2166136261;
+      for (let i = 0; i < key.length; i += 1) {
+        hash ^= key.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      const u = (hash >>> 0) / 4294967295;
+      const v = ((hash >>> 11) & 1023) / 1023;
+      const color = new THREE.Color(STYLE.muscle.color);
+      color.offsetHSL((u - 0.5) * 0.04, (v - 0.35) * 0.12, (u - 0.5) * 0.08);
+      return color;
+    }
+
+    function muscleKind(name) {
+      const text = String(name || '').toLowerCase();
+      if (/fascia|bursa|septum|aponeurosis|retinaculum|sheath|raphe/.test(text)) return 'sheet';
+      if (/tendon|ligament/.test(text)) return 'tendon';
+      return 'belly';
+    }
+
+    // Grazing edges of each muscle darken a little, so overlapping bellies
+    // separate without dropping into a raw-meat red.
+    function addMuscleEdge(material) {
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          [
+            '#include <dithering_fragment>',
+            'float ztEdge = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 1.8);',
+            'gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * vec3(0.62, 0.48, 0.44), ztEdge * 0.72);',
+          ].join('\n')
+        );
+      };
+      material.customProgramCacheKey = () => 'zhiteng-muscle-edge';
+    }
+
+    function styleLayer(object, layer) {
+      const style = STYLE[layer] || STYLE.organ;
+      const meshes = [];
+      object.traverse((node) => { if (node.isMesh && node.material) meshes.push(node); });
+      meshes.forEach((node) => {
+        const nodeStyle = layer === 'organ'
+          ? (ORGAN_STYLE[node.userData.organGroupId] || style)
+          : style;
+        const kind = layer === 'muscle' ? muscleKind(node.name) : '';
+        const sources = Array.isArray(node.material) ? node.material : [node.material];
+        if (kind === 'sheet') {
+          node.visible = false;
+          return;
+        }
+        const styled = sources.map((source) => {
+          const material = new THREE.MeshStandardMaterial({
+            color: kind === 'belly' ? muscleTint(node.name) : (kind === 'tendon' ? 0xf3e6dc : nodeStyle.color),
+            roughness: kind === 'belly' ? 0.72 : nodeStyle.roughness,
+            metalness: 0,
+          });
+          material.name = source.name || `${layer}-material`;
+          if (kind === 'belly') addMuscleEdge(material);
+          if (layer === 'skin') {
+            // Front faces only: the neutral shell is open between the thighs
+            // and a translucent back wall would otherwise show through.
+            material.side = THREE.FrontSide;
+            material.transparent = true;
+            material.opacity = style.opacity;
+            // Depth is laid down by the pre-pass below; this pass only shades
+            // fragments at (or in front of) that nearest surface.
+            material.depthWrite = false;
+            material.depthFunc = THREE.LessEqualDepth;
+            addSkinRim(material);
+          } else {
+            material.side = THREE.DoubleSide;
+            // Organ focus dims non-selected groups; their materials must be
+            // transparency-capable from the first frame.
+            material.transparent = layer === 'organ';
+            material.opacity = 1;
+            material.depthWrite = true;
+          }
+          return material;
+        });
+        node.material = Array.isArray(node.material) ? styled : styled[0];
+        node.renderOrder = layer === 'skin' ? style.renderOrder : 0;
+        node.userData.zhitengLayer = layer;
+      });
+      if (layer === 'skin') meshes.forEach((node) => node.add(makeSkinDepthPrepass(node)));
+    }
+
+    // Depth-only pre-pass for the translucent shell. A single alpha-blended
+    // pass would also shade every front-facing surface *inside* the shell
+    // (the generated mannequin carries some interior geometry in the thighs
+    // and pelvis). Writing the nearest skin depth first, then colouring with
+    // LessEqual, guarantees exactly one shaded skin layer per pixel. It stays
+    // in the transparent queue (renderOrder 19) so bones and the marker are
+    // already in the depth buffer and occlusion still works.
+    function makeSkinDepthPrepass(node) {
+      const prepass = new THREE.Mesh(
+        node.geometry,
+        new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.FrontSide, transparent: true, depthWrite: true })
+      );
+      prepass.renderOrder = STYLE.skin.renderOrder - 1;
+      prepass.name = `${node.name}-depth`;
+      prepass.raycast = () => {};
+      return prepass;
+    }
+
+    function setSkinOpacity(opacity) {
+      const skin = roots.get('skin');
+      if (!skin) return;
+      skin.traverse((node) => {
+        if (!node.isMesh || !node.material || node.material.colorWrite === false) return;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => { material.opacity = opacity; });
+      });
+    }
+
+    function applyOrganAppearance(focus) {
+      const organRoot = roots.get('organ');
+      if (!organRoot) return false;
+      organRoot.traverse((node) => {
+        if (!node.isMesh || !node.material) return;
+        const group = node.userData.organGroupId || 'unknown';
+        const selected = activeOrganGroup === 'all' || group === activeOrganGroup;
+        node.visible = selected || !isolateOrganGroup;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          material.transparent = true;
+          material.opacity = selected ? 1 : 0.09;
+          material.depthWrite = selected;
+        });
+        node.renderOrder = selected ? 2 : 0;
+      });
+      if (focus && activeOrganGroup !== 'all') focusOrganGroup(activeOrganGroup);
+      return true;
+    }
+
+    function focusOrganGroup(group) {
+      const organRoot = roots.get('organ');
+      if (!organRoot) return false;
+      const focusBox = new THREE.Box3();
+      focusBox.makeEmpty();
+      organRoot.updateMatrixWorld(true);
+      organRoot.traverse((node) => {
+        if (node.isMesh && node.userData.organGroupId === group) {
+          focusBox.expandByObject(node);
+        }
+      });
+      if (focusBox.isEmpty()) return false;
+      heldFocusKind = 'organ';
+      return aimAtBox(focusBox, false, true);
+    }
+
+    // Frame the whole skeleton in the clear band. Selecting 骨骼 uses the
+    // same "stay in the middle when the dock opens" rule as an organ.
+    function focusBoneLayer(animate) {
+      const root = roots.get('bone');
+      if (!root) return false;
+      root.updateMatrixWorld(true);
+      const focusBox = new THREE.Box3().setFromObject(root);
+      if (focusBox.isEmpty()) return false;
+      heldFocusKind = 'bone';
+      return aimAtBox(focusBox, true, animate !== false);
+    }
+
+    function boxFitDistance(size, fitClearBand) {
+      const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      const tanX = tanY * Math.max(camera.aspect, 0.1);
+      const vertical = size.y / (2 * tanY);
+      const horizontal = size.x / (2 * tanX);
+      if (!fitClearBand) {
+        return Math.max(vertical, horizontal, size.z * 2.2) * 2.0;
+      }
+      const viewH = canvas.clientHeight || 1;
+      const top = Math.max(0, stageTopChrome / viewH);
+      const bottom = Math.max(0, stageBottomChrome / viewH);
+      const content = Math.max(0.16, 1 - top - bottom);
+      const fill = 0.92;
+      // Height has to fit the band between the pills and the dock. Width
+      // still has the full stage.
+      return Math.max(vertical / (fill * content), horizontal / fill, size.z * 0.35);
+    }
+
+    // [fitClearBand] sizes a full skeleton into the visible strip. Organ
+    // close-ups keep their looser margin and only slide when the dock moves.
+    function aimAtBox(focusBox, fitClearBand, animate) {
+      const center = focusBox.getCenter(new THREE.Vector3());
+      const size = focusBox.getSize(new THREE.Vector3());
+      const direction = camera.position.clone().sub(controls.target).normalize();
+      if (direction.lengthSq() < 0.5) direction.set(0, 0, 1);
+      const raw = boxFitDistance(size, fitClearBand);
+      controls.maxDistance = Math.max(controls.maxDistance, raw * 1.6, 8);
+      controls.minDistance = Math.min(controls.minDistance, Math.min(0.35, raw * 0.2));
+      const distance = THREE.MathUtils.clamp(raw, controls.minDistance, controls.maxDistance);
+      const viewH = canvas.clientHeight || 0;
+      organBandFraction = viewH >= 64 ? clearBandFraction(viewH) : 0.5;
+      const targetTo = center.clone();
+      targetTo.y += lookOffsetY(distance, organBandFraction);
+      organFocusActive = true;
+      userAdjustedView = true;
+      userZoomed = false;
+      const to = targetTo.clone().addScaledVector(direction, distance);
+      if (!animate) {
+        viewAnim = null;
+        camera.position.copy(to);
+        camera.near = Math.max(distance / 100, 0.001);
+        camera.far = distance * 100;
+        camera.updateProjectionMatrix();
+        controls.target.copy(targetTo);
+        controls.update();
+        framedViewHeight = viewH;
+        updateStageGrid();
+        return true;
+      }
+      viewAnim = {
+        from: camera.position.clone(),
+        to,
+        targetFrom: controls.target.clone(),
+        targetTo,
+        start: performance.now(),
+        duration: 360,
+      };
+      return true;
+    }
+
+    // Centre of the strip not covered by the top pills or the bottom dock.
+    // 0 is the top of the canvas, 1 is the bottom.
+    function clearBandFraction(viewH) {
+      const top = Math.max(0, stageTopChrome / viewH);
+      const bottom = Math.max(0, stageBottomChrome / viewH);
+      const content = Math.max(0.16, 1 - top - bottom);
+      const bandTop = Math.min(top, 1 - content);
+      return bandTop + content / 2;
+    }
+
+    // World-Y added to a screen-centred look-at so the subject appears at
+    // [fraction]. Negative moves the subject up.
+    function lookOffsetY(distance, fraction) {
+      const visible = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      return (fraction - 0.5) * visible;
+    }
+
+    function shiftLook(deltaY) {
+      if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 1e-8) return;
+      camera.position.y += deltaY;
+      controls.target.y += deltaY;
+      if (!viewAnim) return;
+      if (viewAnim.from) viewAnim.from.y += deltaY;
+      if (viewAnim.to) viewAnim.to.y += deltaY;
+      if (viewAnim.targetFrom) viewAnim.targetFrom.y += deltaY;
+      if (viewAnim.targetTo) viewAnim.targetTo.y += deltaY;
+      if (viewAnim.orbit && viewAnim.orbit.center) viewAnim.orbit.center.y += deltaY;
+    }
+
+    // Keep the focused organ in the middle of the clear band. Zoom, side,
+    // and aim stay; only the vertical placement follows the dock.
+    function holdOrganInClearBand() {
+      const viewH = canvas.clientHeight || 0;
+      if (viewH < 64) return;
+      const distance = framedLookDistance();
+      if (!(distance > 0)) return;
+      const next = clearBandFraction(viewH);
+      const delta = lookOffsetY(distance, next) - lookOffsetY(distance, organBandFraction);
+      organBandFraction = next;
+      shiftLook(delta);
+      framedViewHeight = viewH;
+      updateStageGrid();
+    }
+
+    function framedLookDistance() {
+      if (viewAnim && viewAnim.to) {
+        const target = viewAnim.targetTo || controls.target;
+        const distance = viewAnim.to.distanceTo(target);
+        if (distance > 0) return distance;
+      }
+      return camera.position.distanceTo(controls.target);
+    }
+
+    function setOrganGroup(group, isolate, focus = true) {
+      const next = ORGAN_STYLE[group] ? group : 'all';
+      activeOrganGroup = next;
+      isolateOrganGroup = !!isolate && next !== 'all';
+      const request = ++organRequestId;
+      const cameraRequest = focus ? ++cameraRequestId : cameraRequestId;
+      return loadLayer('organ').then(() => {
+        if (request !== organRequestId || !visibleLayers.has('organ')) return false;
+        applyOrganAppearance(focus && cameraRequest === cameraRequestId);
+        setSkinOpacity(STYLE.skin.opacityOrgan);
+        return true;
+      });
+    }
+
+    function frameRoot() {
+      return roots.get('skin') || PICK_ORDER.map((layer) => roots.get(layer)).find(Boolean) || null;
+    }
+
+    function innerLayersVisible() {
+      return [...visibleLayers].some((layer) => layer !== 'skin' && roots.has(layer));
+    }
+
+    function updateVisibility() {
+      roots.forEach((root, layer) => {
+        root.visible = visibleLayers.has(layer);
+      });
+      const skinOpacity = visibleLayers.has('organ') && roots.has('organ')
+        ? STYLE.skin.opacityOrgan
+        : (innerLayersVisible() ? STYLE.skin.opacity : STYLE.skin.opacityAlone);
+      setSkinOpacity(skinOpacity);
+      if (roots.has('organ')) applyOrganAppearance(false);
+      // Only the first time the body appears. 骨骼 / 肌肉 / 器官 must not
+      // pull a chosen 背面 back to the front.
+      if (!cameraSettled) frameRegion(region, userAdjustedView || !!pendingView);
+    }
+
+    function applyLayers(layers) {
+      const next = new Set(['skin']);
+      (layers || []).forEach((layer) => { if (STYLE[layer]) next.add(layer); });
+      const unchanged = next.size === visibleLayers.size &&
+        [...next].every((layer) => visibleLayers.has(layer));
+      if (unchanged && layerRequest) return layerRequest;
+      if (unchanged && [...next].every((layer) => roots.has(layer))) {
+        post('layersApplied', { layers: [...visibleLayers] });
+        return Promise.resolve();
+      }
+      const request = ++layerRequestId;
+      if (!unchanged) cameraRequestId++;
+      visibleLayers = next;
+      // Hide deselected roots immediately, even while the new layer loads.
+      updateVisibility();
+      const pending = Promise.all([...next].map((layer) => loadLayer(layer))).then(() => {
+        if (request !== layerRequestId) return;
+        updateVisibility();
+        // Classifying a point does not change its shape or placement.
+        if (marker && marker.visible) reportMarker('layers', false);
+      }).finally(() => {
+        if (request !== layerRequestId) return;
+        layerRequest = null;
+        post('layersApplied', { layers: [...visibleLayers] });
+      });
+      layerRequest = pending;
+      return pending;
+    }
+
+    function loadLayer(layer) {
+      if (roots.has(layer)) return Promise.resolve(roots.get(layer));
+      if (loading.has(layer)) return loading.get(layer);
+      const url = modelUrls.get(layer);
+      if (!url) return Promise.resolve(null);
+      statusEl.textContent = `加载${layer === 'skin' ? '人体表面' : '解剖分层'}…`;
+      const promise = new Promise((resolve, reject) => {
+        loader.load(url, (gltf) => {
+          const root = gltf.scene;
+          root.name = `zhiteng-${layer}`;
+          styleLayer(root, layer);
+          roots.set(layer, root);
+          anatomyRevision++;
+          scene.add(root);
+          if (layer === 'organ') applyOrganAppearance(false);
+          loading.delete(layer);
+          updateVisibility();
+          statusEl.textContent = '轻点人体标记 · 单指旋转 · 双指缩放';
+          post('layerLoaded', { ok: true, layer, bodyModelVersion: modelVersion });
+          if (layer === 'skin') skinFirstFramePending = true;
+          resolve(root);
+        }, undefined, (error) => {
+          loading.delete(layer);
+          statusEl.textContent = '模型加载失败，可改用 2D 继续记录';
+          post('error', { message: String(error && error.message || error), layer });
+          reject(error);
+        });
+      });
+      loading.set(layer, promise);
+      return promise;
+    }
+
+    // Invisible, decimated copy of the final neutral shell split by the
+    // original Z-Anatomy surface regions. It is never added to the scene, so
+    // it cannot change the look of the model; it only answers surface picks.
+    function loadSurfaceRegions() {
+      if (surfaceRegionRoot) return Promise.resolve(surfaceRegionRoot);
+      if (surfaceRegionLoading) return surfaceRegionLoading;
+      const url = modelUrls.get('region');
+      if (!url) return Promise.resolve(null);
+      surfaceRegionLoading = new Promise((resolve, reject) => {
+        loader.load(url, (gltf) => {
+          surfaceRegionRoot = gltf.scene;
+          anatomyRevision++;
+          surfaceRegionRoot.name = 'zhiteng-surface-regions';
+          surfaceRegionRoot.updateMatrixWorld(true);
+          surfaceRegionLoading = null;
+          post('layerLoaded', { ok: true, layer: 'region', bodyModelVersion: modelVersion });
+          resolve(surfaceRegionRoot);
+        }, undefined, (error) => {
+          surfaceRegionLoading = null;
+          post('error', { message: String(error && error.message || error), layer: 'region' });
+          reject(error);
+        });
+      });
+      return surfaceRegionLoading;
+    }
+
+    function surfaceRegionOnRay(origin, direction, anchor) {
+      if (!surfaceRegionRoot) return null;
+      surfaceRegionRoot.updateMatrixWorld(true);
+      regionRaycaster.set(origin, direction);
+      // The proxy occupies the same shell as the visible skin. A small margin
+      // tolerates decimation around narrow boundaries without reaching the far
+      // side of an arm or torso.
+      regionRaycaster.near = 0;
+      regionRaycaster.far = 0.05;
+      const hits = regionRaycaster.intersectObject(surfaceRegionRoot, true);
+      if (!hits.length) return null;
+      const hit = hits.find((candidate) => candidate.point.distanceTo(anchor) <= 0.035) || hits[0];
+      let object = hit.object;
+      while (object && !object.userData.bodyPartId && object.parent !== surfaceRegionRoot) {
+        object = object.parent;
+      }
+      return object || hit.object;
+    }
+
+    // Region chips. Distances and look-at fractions must stay in lockstep
+    // with bodyRegionDistanceHeights / bodyRegionLookAtFromFeet in
+    // schematic_body_locator.dart so 2D and 3D frame the same slice.
+    // [keepDirection] reframes the slice (头 / 上身 / 下身 / 全身) from the
+    // side the camera is already on. 复位 passes false and returns to 正面.
+    function frameRegion(nextRegion, keepDirection) {
+      region = nextRegion || 'full';
+      const root = frameRoot();
+      if (!root) return false;
+      box.setFromObject(root);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      const height = Math.max(size.y, 0.001);
+      let targetY = center.y;
+      let distance = height * 1.95; // full
+      if (region === 'head') {
+        // Head, neck and both shoulders. The lower edge overlaps 上身 at the
+        // shoulders; the chest below that belongs to 上身.
+        targetY = box.min.y + height * 0.885;
+        distance = height * 0.54;
+      } else if (region === 'upper') {
+        // Shoulders through the fingertips. Overlaps 头部 at the shoulders
+        // and 下身 across the abdomen.
+        targetY = box.min.y + height * 0.62;
+        distance = height * 0.85;
+      } else if (region === 'lower') {
+        // Abdomen through the soles, with room below the feet. The abdomen
+        // is also inside 上身.
+        targetY = box.min.y + height * 0.27;
+        distance = height * 1.02;
+      }
+      // A Flutter layout pass can update the clear band while a named-view
+      // turn is still running. The camera is deliberately closer during that
+      // animation, so treating the current sample as the user's zoom makes
+      // the close-up permanent. Reframe from the animation's intended final
+      // pose instead, then cancel the obsolete animation.
+      const interruptedViewAnim = viewAnim;
+      viewAnim = null;
+      // Leave a band for the Flutter view-toggle pill (top) and the hint /
+      // zoom control (bottom). Same pixel chrome as bodyStageTopChrome /
+      // bodyStageBottomChrome in schematic_body_locator.dart.
+      const TOP_CHROME = stageTopChrome;
+      const BOTTOM_CHROME = stageBottomChrome;
+      const viewH = canvas.clientHeight || 0;
+      if (viewH < 64) return false;
+      // A real region frame replaces an organ or skeleton close-up. Until
+      // then, dock changes must keep holding that subject (see setStageChrome).
+      organFocusActive = false;
+      heldFocusKind = null;
+      userZoomed = false;
+      const top = Math.max(0, TOP_CHROME / viewH);
+      const bottom = Math.max(0, BOTTOM_CHROME / viewH);
+      const content = Math.max(0.22, 1 - top - bottom);
+      const fill = 0.92;
+      // `distance` is still the old content=1 camera distance (body heights).
+      // Pull it in so the framed body fills the clear band, matching 2D.
+      distance = distance * 0.839 / (fill * content);
+      const fitted = distance;
+      if (userAdjustedView && fitDistance > 0) {
+        let current = camera.position.distanceTo(controls.target);
+        if (interruptedViewAnim && interruptedViewAnim.to) {
+          const settledTarget = interruptedViewAnim.targetTo || controls.target;
+          const settledDistance = interruptedViewAnim.to.distanceTo(settledTarget);
+          if (Number.isFinite(settledDistance) && settledDistance > 0) {
+            current = settledDistance;
+          }
+        }
+        const ratio = current / fitDistance;
+        if (Number.isFinite(ratio) && ratio > 0) {
+          distance = fitted * THREE.MathUtils.clamp(ratio, 0.25, 6);
+        }
+      }
+      fitDistance = fitted;
+      gridReferenceDistance = height * 1.95 * 0.839 / fill;
+      const visible = 2 * fitted * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      targetY += ((top + content / 2) - 0.5) * visible;
+      const target = new THREE.Vector3(center.x, targetY, center.z);
+      // Default pose looks at the front. A side the user already chose, or a
+      // drag/zoom, stays; otherwise 背面 would be undone by the next chip.
+      const direction = new THREE.Vector3();
+      if (keepDirection) {
+        if (interruptedViewAnim && interruptedViewAnim.to) {
+          direction.subVectors(
+            interruptedViewAnim.to,
+            interruptedViewAnim.targetTo || controls.target
+          );
+        } else {
+          direction.subVectors(camera.position, controls.target);
+        }
+      }
+      if (direction.lengthSq() < 1e-8) {
+        const named = pendingView && VIEW_DIRECTIONS[pendingView] ? pendingView : 'front';
+        const d = VIEW_DIRECTIONS[named];
+        direction.set(d[0], d[1], d[2]);
+      } else {
+        direction.normalize();
+      }
+      pendingView = null;
+      controls.maxDistance = Math.max(8, distance * 1.6);
+      controls.minDistance = Math.min(0.35, distance * 0.2);
+      camera.position.copy(target).addScaledVector(direction, distance);
+      camera.near = Math.max(distance / 100, 0.001);
+      camera.far = distance * 100;
+      camera.updateProjectionMatrix();
+      controls.target.copy(target);
+      controls.update();
+      const actualDistance = camera.position.distanceTo(controls.target);
+      if (region === 'full' && Number.isFinite(actualDistance) && actualDistance > 0) {
+        gridReferenceDistance = actualDistance;
+      }
+      framedViewHeight = viewH;
+      updateStageGrid();
+      if (roots.has('skin')) cameraSettled = true;
+      return true;
+    }
+
+    // The main marker participates in anatomy occlusion; its small locator
+    // remains visible over the skin so the selected position can be found.
+    //
+    // The marker is a group: its local +Z points out of the skin where the
+    // marker entered, its local +Y is "up the body" within the skin plane.
+    // The centre dot uses that frame. The patch, line and radiating rays are
+    // draped on the skin in world space so they bend with the body.
+    function ensureMarker() {
+      if (marker) return marker;
+      marker = new THREE.Group();
+      // Leave Group.renderOrder at zero: it sorts before each child's order
+      // and would otherwise force even the locator ahead of the skin pass.
+      scene.add(marker);
+      // A drafting guide, not a second pain stroke: a hollow surface entry
+      // and a dashed segment ending at the actual, moving 3D coordinate.
+      depthGuide = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+        new THREE.LineDashedMaterial({ color: STYLE.marker.color, transparent: true,
+          opacity: 0.45, dashSize: 0.006, gapSize: 0.004, depthTest: false, depthWrite: false })
+      );
+      depthEntryRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.0045, 0.0005, 6, 24),
+        new THREE.MeshBasicMaterial({ color: STYLE.marker.color, transparent: true,
+          opacity: 0.6, depthTest: false, depthWrite: false })
+      );
+      for (const guide of [depthGuide, depthEntryRing]) {
+        guide.renderOrder = STYLE.skin.renderOrder + 1;
+        guide.visible = false;
+        guide.raycast = () => {};
+        scene.add(guide);
+      }
+      buildMarkerShape();
+      return marker;
+    }
+
+    function markerMaterial(opacity) {
+      const style = STYLE.marker;
+      // The main marker participates in the opaque anatomy depth buffer. As
+      // it moves inward, muscle/bone progressively cover it just like the
+      // reference interaction. A small depth-aware locator pass below keeps
+      // the selected coordinate recoverable even when the main shape is deep.
+      return new THREE.MeshStandardMaterial({
+        color: style.color,
+        emissive: style.emissive,
+        emissiveIntensity: 0.6,
+        roughness: 0.55,
+        metalness: 0,
+        transparent: true,
+        opacity,
+        depthTest: true,
+        depthWrite: false,
+      });
+    }
+
+    function updateMarkerDepthAppearance() {
+      if (!markerLocator) return;
+      // Never saturate the visual cue at 6 cm: shoulders / torso can be much
+      // thicker. Keep the 3D locator legible even behind opaque inner layers.
+      const cueRange = Math.max(0.01, markerAvailableDepth);
+      const t = THREE.MathUtils.clamp(markerDepth / cueRange, 0, 1);
+      markerLocator.material.opacity = THREE.MathUtils.lerp(0.72, 0.42, t);
+      if (markerHalo) markerHalo.material.opacity = THREE.MathUtils.lerp(STYLE.marker.haloOpacity, 0.025, t);
+    }
+
+    function placeDepthViewButton() {
+      // Keep it on the right, above the size slider. The left side is the
+      // layer list, which grows when organs are expanded.
+      const aboveTools = Math.max(0, stageBottomChrome) + 156;
+      depthViewButton.style.bottom = aboveTools + 'px';
+    }
+
+    function updateDepthGuide() {
+      const selected = !!(marker && marker.visible && lineAnchor && markerInward);
+      placeDepthViewButton();
+      depthViewButton.style.display = selected ? 'block' : 'none';
+      if (!depthGuide) return;
+      depthGuide.visible = depthEntryRing.visible = selected && markerDepth > SURFACE_EPSILON;
+      if (!selected) return;
+      const positions = depthGuide.geometry.attributes.position;
+      positions.setXYZ(0, lineAnchor.x, lineAnchor.y, lineAnchor.z);
+      positions.setXYZ(1, marker.position.x, marker.position.y, marker.position.z);
+      positions.needsUpdate = true;
+      depthGuide.geometry.computeBoundingSphere();
+      depthGuide.computeLineDistances();
+      depthEntryRing.position.copy(lineAnchor);
+      depthEntryRing.quaternion.copy(marker.quaternion);
+    }
+
+    function buildMarkerShape() {
+      if (!marker) return;
+      markerLocator = null;
+      markerHalo = null;
+      while (marker.children.length) {
+        const child = marker.children[0];
+        marker.remove(child);
+        child.geometry.dispose();
+        child.material.dispose();
+      }
+      const style = STYLE.marker;
+      const r = style.radius;
+      const add = (geometry, opacity, order) => {
+        const mesh = new THREE.Mesh(geometry, markerMaterial(opacity));
+        mesh.renderOrder = order === undefined ? style.renderOrder : order;
+        mesh.raycast = () => {}; // never pick the marker itself
+        marker.add(mesh);
+        return mesh;
+      };
+      const core = () => add(new THREE.SphereGeometry(r, 24, 24), 0.96);
+
+      if (markerShape === 'area' || markerShape === 'line' || markerShape === 'radiate') {
+        // Centre dot only. The patch, stroke and rays are draped on the skin
+        // by rebuildSurfaceMark, the same way the line already bends.
+        core();
+      } else {
+        core();
+      }
+
+      // A small locator remains above the glass shell. The full marker is
+      // still rendered below the skin (and therefore communicates depth),
+      // while this restrained centre prevents a deep point from disappearing
+      // completely behind the translucent shell or dense inner layers.
+      markerLocator = new THREE.Mesh(
+        new THREE.SphereGeometry(r * 0.5, 18, 18),
+        new THREE.MeshBasicMaterial({
+          color: style.color,
+          transparent: true,
+          opacity: 0.72,
+          depthTest: false,
+          depthWrite: false,
+        })
+      );
+      markerLocator.renderOrder = STYLE.skin.renderOrder + 2;
+      markerLocator.raycast = () => {};
+      marker.add(markerLocator);
+
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(style.haloRadius, 24, 24),
+        new THREE.MeshBasicMaterial({
+          color: style.color,
+          transparent: true,
+          opacity: style.haloOpacity,
+          depthTest: true,
+          depthWrite: false,
+        })
+      );
+      halo.renderOrder = style.renderOrder - 1;
+      halo.raycast = () => {};
+      if (markerShape !== 'line') {
+        markerHalo = halo;
+        marker.add(halo);
+      } else {
+        halo.geometry.dispose();
+        halo.material.dispose();
+      }
+      marker.scale.setScalar(markerScale);
+      updateMarkerDepthAppearance();
+      rebuildSurfaceMark();
+    }
+
+    let pinnedRoot = null;
+    let pinnedMarkerKey = '';
+
+    function clearPinnedMarkers() {
+      if (!pinnedRoot) return;
+      scene.remove(pinnedRoot);
+      pinnedRoot.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      });
+      pinnedRoot = null;
+    }
+
+    // Dim copies of spots already placed on this record. The active marker
+    // stays separate so the user can move the one they are editing.
+    function setPinnedMarkers(list) {
+      const items = Array.isArray(list) ? list : [];
+      const key = JSON.stringify(items);
+      if (key === pinnedMarkerKey) return;
+      pinnedMarkerKey = key;
+      clearPinnedMarkers();
+      if (!items.length) return;
+      pinnedRoot = new THREE.Group();
+      pinnedRoot.raycast = () => {};
+      const color = STYLE.marker.color;
+      const base = STYLE.marker.radius;
+      for (const item of items) {
+        if (!item || item.localX == null || item.localY == null || item.localZ == null) continue;
+        const scale = THREE.MathUtils.clamp(Number(item.markerScale) || 1, 0.5, 3);
+        const shape = item.shape || 'point';
+        const radius = base * scale * (shape === 'area' ? 2.2 : shape === 'radiate' ? 1.6 : 1);
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(radius, 18, 18),
+          new THREE.MeshStandardMaterial({
+            color,
+            emissive: STYLE.marker.emissive,
+            emissiveIntensity: 0.35,
+            transparent: true,
+            opacity: shape === 'point' ? 0.72 : 0.4,
+            depthWrite: false,
+          })
+        );
+        mesh.position.set(Number(item.localX), Number(item.localY), Number(item.localZ));
+        mesh.raycast = () => {};
+        pinnedRoot.add(mesh);
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(base * 0.55 * scale, 12, 12),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.9,
+            depthTest: false,
+            depthWrite: false,
+          })
+        );
+        dot.position.copy(mesh.position);
+        dot.renderOrder = STYLE.skin.renderOrder + 2;
+        dot.raycast = () => {};
+        pinnedRoot.add(dot);
+      }
+      scene.add(pinnedRoot);
+    }
+
+    // Put the marker back on the recorded coordinate and depth. The skin ray
+    // is only used to aim the depth guide; it must not move the point or
+    // replace the recorded depth, or an organ pick comes back as muscle.
+    function restoreMarker(x, y, z, depth) {
+      if (!roots.get('skin')) return false;
+      ensureMarker();
+      const point = new THREE.Vector3(Number(x), Number(y), Number(z));
+      const bounds = new THREE.Box3().setFromObject(roots.get('skin'));
+      const outward = point.clone().sub(bounds.getCenter(new THREE.Vector3()));
+      if (outward.lengthSq() < 1e-8) outward.set(0, 0, 1);
+      outward.normalize();
+      const inward = outward.clone().negate();
+      const origin = point.clone().addScaledVector(outward, 1.5);
+      const segment = skinSegment(origin, inward, point);
+      const savedDepth = Number(depth);
+      marker.visible = true;
+      marker.position.copy(point);
+      markerInward = inward.clone();
+      if (segment) {
+        markerAvailableDepth = Math.max(0, segment.exit - segment.entry);
+        lineAnchor = origin.clone().addScaledVector(inward, segment.entry);
+        markerSkinObject = segment.skinHits[0].object;
+        orientMarker(segment.skinHits[0]);
+      } else {
+        markerAvailableDepth = 0.25;
+        lineAnchor = point.clone();
+        markerSkinObject = null;
+      }
+      const along = Math.max(0, point.clone().sub(lineAnchor).dot(markerInward));
+      if (Number.isFinite(savedDepth)) {
+        markerDepth = Math.max(0, savedDepth);
+        // Keep the guide as long as the recorded depth, ending on the point.
+        lineAnchor = point.clone().addScaledVector(markerInward, -markerDepth);
+      } else {
+        markerDepth = along;
+      }
+      if (markerDepth > markerAvailableDepth) markerAvailableDepth = markerDepth;
+      marker.position.copy(point);
+      updateMarkerDepthAppearance();
+      updateDepthGuide();
+      reportMarker('restore');
+      return true;
+    }
+
+    function clearSurfaceMark() {
+      if (!surfaceMark) return;
+      scene.remove(surfaceMark);
+      surfaceMark.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+      });
+      surfaceMark = null;
+    }
+
+    function beginSurfaceMark(basis) {
+      clearSurfaceMark();
+      if (!marker || !marker.visible) return null;
+      surfaceMark = new THREE.Group();
+      surfaceMark.raycast = () => {};
+      surfaceMark.userData.markerPosition = basis.markerPosition.clone();
+      surfaceMark.position.copy(marker.position).sub(basis.markerPosition);
+      scene.add(surfaceMark);
+      return surfaceMark;
+    }
+
+    function markerBasis() {
+      return {
+        normal: new THREE.Vector3(0, 0, 1).applyQuaternion(marker.quaternion),
+        up: new THREE.Vector3(0, 1, 0).applyQuaternion(marker.quaternion),
+        anchor: (lineAnchor || marker.position).clone(),
+        markerPosition: marker.position.clone(),
+        scale: markerScale,
+        length: lineLength,
+        angle: lineAngle,
+      };
+    }
+
+    // Sit just camera-side of the shell so a sheet does not z-fight the skin.
+    function liftOffSkin(point, normal) {
+      return point.clone().addScaledVector(normal, 0.0015);
+    }
+
+    function pointAlong(points, distance) {
+      if (!points || !points.length) return new THREE.Vector3();
+      if (distance <= 0 || points.length === 1) return points[0].clone();
+      let traveled = 0;
+      for (let i = 1; i < points.length; i++) {
+        const seg = points[i].distanceTo(points[i - 1]);
+        if (traveled + seg >= distance - 1e-6) {
+          const t = seg < 1e-8 ? 0 : (distance - traveled) / seg;
+          return points[i - 1].clone().lerp(points[i], THREE.MathUtils.clamp(t, 0, 1));
+        }
+        traveled += seg;
+      }
+      return points[points.length - 1].clone();
+    }
+
+    // Points of [points] between arc lengths d0 and d1, including both ends.
+    function sliceAlong(points, d0, d1) {
+      if (!points || !points.length) return [];
+      const out = [pointAlong(points, d0)];
+      let traveled = 0;
+      for (let i = 1; i < points.length; i++) {
+        const seg = points[i].distanceTo(points[i - 1]);
+        const next = traveled + seg;
+        if (next > d0 + 1e-4 && traveled < d1 - 1e-4 && next < d1) out.push(points[i].clone());
+        traveled = next;
+        if (traveled >= d1) break;
+      }
+      const end = pointAlong(points, d1);
+      if (out[out.length - 1].distanceTo(end) > 0.001) out.push(end);
+      return out;
+    }
+
+    function* radialPolylines(count, distance, basis) {
+      const { normal, up, anchor } = basis;
+      const lines = [];
+      for (let i = 0; i < count; i++) {
+        const dir = up.clone().applyAxisAngle(normal, (i / count) * Math.PI * 2);
+        lines.push(yield* walkSurface(anchor, dir, distance, basis));
+      }
+      return { normal, lines };
+    }
+
+    function addSurfaceTube(points, radius, opacity, closed, tension = 0.15, radialSegments = 6) {
+      if (!points || points.length < (closed ? 3 : 2)) return;
+      let curvePoints = points.map((p) => p.clone());
+      if (closed) {
+        const cleaned = [curvePoints[0]];
+        for (let i = 1; i < curvePoints.length; i++) {
+          if (curvePoints[i].distanceTo(cleaned[cleaned.length - 1]) > 0.002) cleaned.push(curvePoints[i]);
+        }
+        if (cleaned.length >= 2 && cleaned[0].distanceTo(cleaned[cleaned.length - 1]) < 0.002) cleaned.pop();
+        if (cleaned.length < 3) return;
+        curvePoints = cleaned;
+      } else if (curvePoints[0].distanceTo(curvePoints[curvePoints.length - 1]) < 0.002) {
+        return;
+      } else if (curvePoints.length < 4) {
+        const a = curvePoints[0];
+        const b = curvePoints[curvePoints.length - 1];
+        curvePoints = [0, 1, 2, 3].map((i) => a.clone().lerp(b, i / 3));
+      }
+      const curve = new THREE.CatmullRomCurve3(curvePoints, closed, 'catmullrom', tension);
+      const mesh = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, Math.max(8, curvePoints.length * 2), radius, radialSegments, closed),
+        markerMaterial(opacity)
+      );
+      mesh.renderOrder = STYLE.marker.renderOrder;
+      mesh.raycast = () => {};
+      surfaceMark.add(mesh);
+    }
+
+    // Step along the skin from [start] in [direction], snapping back onto the
+    // shell each step so the path bends with the body instead of cutting a
+    // straight chord through it.
+    function* walkSurface(start, direction, distance, basis) {
+      const step = 0.006;
+      const points = [];
+      let pos = start.clone();
+      let dir = direction.clone().normalize();
+      let normal = basis.normal.clone();
+      const count = Math.max(2, Math.round(distance / step));
+      // Translate the whole surface curve by the exact entry-to-marker
+      // vector. Using each sample's normal (and capping it at 8 mm) made the
+      // line stay at the skin while its centre point travelled deeper.
+      const depthOffset = basis.markerPosition.clone().sub(basis.anchor);
+      const place = (point) => point.clone().add(depthOffset);
+      points.push(place(pos));
+      for (let i = 0; i < count; i++) {
+        const tangent = dir.clone().addScaledVector(normal, -dir.dot(normal));
+        if (tangent.lengthSq() < 1e-8) break;
+        tangent.normalize();
+        const probe = pos.clone().addScaledVector(tangent, step).addScaledVector(normal, 0.05);
+        raycaster.set(probe, normal.clone().negate());
+        raycaster.far = 0.14;
+        const hits = intersectLayer('skin');
+        // One probe per generator step lets the browser handle the next
+        // control input before walking the rest of a large patch/radiation.
+        yield;
+        if (!hits.length) break;
+        const hit = hits[0];
+        let nextNormal = hit.face
+          ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize()
+          : normal;
+        if (nextNormal.dot(normal) < 0) nextNormal.negate();
+        const next = place(hit.point);
+        if (next.distanceTo(points[points.length - 1]) < 0.002) break;
+        pos = hit.point.clone();
+        normal = nextNormal;
+        dir = tangent;
+        points.push(next);
+      }
+      return points;
+    }
+
+    function* rebuildSurfaceLine(basis) {
+      const { normal, up, anchor } = basis;
+      // Thickness changes reuse the draped centreline. Only position,
+      // direction or length require another walk over the full skin mesh.
+      const key = [...anchor.toArray(), ...normal.toArray(), ...up.toArray(),
+        basis.length, basis.angle].join(',');
+      let samples;
+      if (lineSampleCache && lineSampleCache.key === key) {
+        const offset = basis.markerPosition.clone().sub(lineSampleCache.markerPosition);
+        samples = lineSampleCache.samples.map((point) => point.clone().add(offset));
+      } else {
+        const half = 0.08 * basis.length;
+        const heading = up.clone().applyAxisAngle(normal, basis.angle);
+        const down = yield* walkSurface(anchor, heading.clone().negate(), half, basis);
+        const ahead = yield* walkSurface(anchor, heading, half, basis);
+        samples = down.reverse().concat(ahead.slice(1));
+        lineSampleCache = { key, samples, markerPosition: basis.markerPosition.clone() };
+      }
+      if (samples.length < 4) {
+        clearSurfaceMark();
+        return;
+      }
+      if (!beginSurfaceMark(basis)) return;
+      addSurfaceTube(samples, 0.003 * basis.scale, 0.92, false, 0.2, 7);
+    }
+
+    // Disk of the same radius as the old flat patch (r * 2.8), resampled on
+    // the skin so it bends over a shoulder or arm instead of cutting through.
+    function* rebuildSurfaceArea(basis) {
+      const radius = 0.014 * 2.8 * basis.scale; // STYLE.marker.radius * 2.8
+      const sectors = 24;
+      const rings = 5;
+      const { normal, lines } = yield* radialPolylines(sectors, radius, basis);
+      if (!beginSurfaceMark(basis)) return;
+      const positions = [];
+      const push = (point) => {
+        const lifted = liftOffSkin(point, normal);
+        positions.push(lifted.x, lifted.y, lifted.z);
+      };
+      push(lines[0][0]);
+      for (let s = 0; s < sectors; s++) {
+        for (let ring = 1; ring <= rings; ring++) push(pointAlong(lines[s], radius * ring / rings));
+      }
+      const indices = [];
+      const vid = (s, ring) => 1 + s * rings + (ring - 1);
+      for (let s = 0; s < sectors; s++) {
+        const s2 = (s + 1) % sectors;
+        indices.push(0, vid(s, 1), vid(s2, 1));
+        for (let ring = 1; ring < rings; ring++) {
+          const a = vid(s, ring);
+          const b = vid(s, ring + 1);
+          const c = vid(s2, ring + 1);
+          const d = vid(s2, ring);
+          indices.push(a, b, d, b, c, d);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const material = markerMaterial(0.42);
+      material.side = THREE.DoubleSide;
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = -2;
+      material.polygonOffsetUnits = -2;
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.renderOrder = STYLE.marker.renderOrder;
+      mesh.raycast = () => {};
+      surfaceMark.add(mesh);
+    }
+
+    // Two rings and eight rays, same reach as the old flat mark, each one
+    // walked along the skin like the line.
+    function* rebuildSurfaceRadiate(basis) {
+      const base = 0.014 * basis.scale;
+      const sectors = 24;
+      const { normal, lines } = yield* radialPolylines(sectors, base * 3.5, basis);
+      if (!beginSurfaceMark(basis)) return;
+      const liftLine = (pts) => pts.map((point) => liftOffSkin(point, normal));
+      addSurfaceTube(liftLine(lines.map((line) => pointAlong(line, base * 2.0))), base * 0.13, 0.6, true);
+      addSurfaceTube(liftLine(lines.map((line) => pointAlong(line, base * 3.2))), base * 0.11, 0.36, true);
+      for (let i = 0; i < 8; i++) {
+        addSurfaceTube(liftLine(sliceAlong(lines[i * 3], base * 1.3, base * 3.5)), base * 0.11, 0.75, false);
+      }
+      if (!surfaceMark.children.length) clearSurfaceMark();
+    }
+
+    function rebuildSurfaceMark() {
+      surfaceRevision++;
+      // There is one replaceable job, never a queue of obsolete geometries.
+      surfaceJob = null;
+      if (!marker || !marker.visible || markerShape === 'point') {
+        clearSurfaceMark();
+        surfaceBuiltRevision = surfaceRevision;
+      }
+    }
+
+    function stepSurfaceMark() {
+      if (surfaceBuiltRevision === surfaceRevision) return;
+      if (!surfaceJob) {
+        const basis = markerBasis();
+        surfaceJob = markerShape === 'line' ? rebuildSurfaceLine(basis)
+          : markerShape === 'area' ? rebuildSurfaceArea(basis)
+          : rebuildSurfaceRadiate(basis);
+      }
+      const deadline = performance.now() + 8;
+      do {
+        if (surfaceJob.next().done) {
+          surfaceJob = null;
+          surfaceBuiltRevision = surfaceRevision;
+          surfaceBuilds++;
+          return;
+        }
+      } while (performance.now() < deadline);
+    }
+
+    function setMarkerShape(shape) {
+      const next = ['point', 'area', 'line', 'radiate'].includes(shape) ? shape : 'point';
+      if (next === markerShape && marker) return;
+      markerShape = next;
+      if (marker) buildMarkerShape();
+    }
+
+    function setMarkerScale(scale) {
+      const next = THREE.MathUtils.clamp(Number(scale) || 0.5, 0.5, 3);
+      if (next === markerScale) return;
+      markerScale = next;
+      if (marker) marker.scale.setScalar(markerScale);
+      if (markerShape !== 'point') rebuildSurfaceMark();
+    }
+
+    function setLineLength(length) {
+      const next = THREE.MathUtils.clamp(Number(length) || 1, 0.35, 3.2);
+      if (next === lineLength) return;
+      lineLength = next;
+      if (markerShape === 'line') rebuildSurfaceMark();
+    }
+
+    function setLineAngle(angle) {
+      const next = Number(angle);
+      const normalized = Number.isFinite(next) ? Math.atan2(Math.sin(next), Math.cos(next)) : 0;
+      if (Math.abs(normalized - lineAngle) < 1e-10) return;
+      lineAngle = normalized;
+      if (markerShape === 'line') rebuildSurfaceMark();
+    }
+
+    // Orient the marker frame from the skin normal at the entry point.
+    function orientMarker(hit) {
+      if (!marker || !hit || !hit.face) return;
+      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+      // Make sure the normal faces the camera (front-face shell, but be safe).
+      const toCamera = camera.position.clone().sub(hit.point);
+      if (normal.dot(toCamera) < 0) normal.negate();
+      let up = new THREE.Vector3(0, 1, 0);
+      up.addScaledVector(normal, -normal.dot(up));
+      if (up.lengthSq() < 1e-6) up = new THREE.Vector3(1, 0, 0).addScaledVector(normal, -normal.x);
+      up.normalize();
+      const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+      marker.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
+    }
+
+    // Camera dolly, factor > 1 zooms in. With a marker placed we zoom toward
+    // it (camera and orbit target both move toward the point) so the marked
+    // spot stays where it is on screen and rotation then orbits around it;
+    // otherwise about the orbit target.
+    function dolly(factor) {
+      cameraRequestId++;
+      if (!factor || factor <= 0) return;
+      userAdjustedView = true;
+      const current = camera.position.distanceTo(controls.target);
+      const next = current / factor;
+      if (next < controls.minDistance || next > controls.maxDistance) return;
+      userZoomed = true;
+      const focus = marker && marker.visible ? marker.position.clone() : controls.target.clone();
+      const cameraOffset = camera.position.clone().sub(focus);
+      const targetOffset = controls.target.clone().sub(focus);
+      camera.position.copy(focus).addScaledVector(cameraOffset, 1 / factor);
+      controls.target.copy(focus).addScaledVector(targetOffset, 1 / factor);
+      camera.near = Math.max(next / 100, 0.001);
+      camera.far = next * 100;
+      camera.updateProjectionMatrix();
+      if (viewAnim) viewAnim = null;
+    }
+
+    // Nearest canonical view for the current camera, in anatomical terms.
+    function currentView() {
+      const direction = camera.position.clone().sub(controls.target);
+      if (Math.abs(direction.x) > Math.abs(direction.z)) return direction.x > 0 ? 'left' : 'right';
+      return direction.z >= 0 ? 'front' : 'back';
+    }
+
+    // Swing the camera to a canonical view around the current target, keeping
+    // the current zoom. Animated in tick().
+    function setView(view) {
+      const direction = VIEW_DIRECTIONS[view];
+      if (!direction) return;
+      cameraRequestId++;
+      userAdjustedView = true;
+      // Mesh not framed yet: remember the side and apply it with the first frame
+      // instead of aiming a camera that is still sitting at the origin.
+      if (!cameraSettled) {
+        pendingView = view;
+        return;
+      }
+      pendingView = null;
+      const target = controls.target.clone();
+      // If a newer chip interrupts an older build's close-up animation, its
+      // current radius is only an animation sample, not a user zoom. Carry the
+      // previous destination forward; all new turns below remain scale-neutral.
+      let distance = camera.position.distanceTo(target);
+      if (viewAnim && viewAnim.to) {
+        const settledTarget = viewAnim.targetTo || target;
+        const settledDistance = viewAnim.to.distanceTo(settledTarget);
+        if (Number.isFinite(settledDistance) && settledDistance > 0) {
+          distance = settledDistance;
+        }
+      }
+      const from = camera.position.clone();
+      const fromOffset = from.clone().sub(target);
+      const toOffset = new THREE.Vector3(direction[0], direction[1], direction[2]).multiplyScalar(distance);
+      const to = target.clone().add(toOffset);
+      // Every canonical view change follows the outside of a sphere instead
+      // of the straight chord between two camera positions. A chord is about
+      // 29% closer at the midpoint of a 90° turn, which visibly zooms the
+      // model and lets rapid taps spend nearly all their time enlarged.
+      // Keeping the radius constant makes view changes scale-neutral at every
+      // animation frame, not only after the final turn happens to complete.
+      const fromAngle = Math.atan2(fromOffset.x, fromOffset.z);
+      const toAngle = Math.atan2(toOffset.x, toOffset.z);
+      const angleDelta = Math.atan2(
+        Math.sin(toAngle - fromAngle),
+        Math.cos(toAngle - fromAngle)
+      );
+      viewAnim = {
+        from,
+        to,
+        start: performance.now(),
+        duration: 340,
+        orbit: {
+          center: target,
+          fromDistance: fromOffset.length(),
+          toDistance: distance,
+          fromAngle,
+          angleDelta,
+          fromY: fromOffset.y,
+          toY: toOffset.y,
+        },
+      };
+    }
+
+    // Looking directly down the placement ray necessarily hides its motion.
+    // Offer an explicit oblique view; depth input itself never moves a camera
+    // or redefines the entry/ray, including while this animation is running.
+    function showDepthView() {
+      if (!marker || !marker.visible || !markerInward) return false;
+      cameraRequestId++;
+      const outward = markerInward.clone().negate();
+      const up = Math.abs(outward.y) < 0.95
+        ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
+      const side = new THREE.Vector3().crossVectors(up, outward).normalize();
+      const direction = outward.multiplyScalar(0.5).addScaledVector(side, Math.sqrt(3) / 2);
+      const target = lineAnchor.clone().add(marker.position).multiplyScalar(0.5);
+      const right = new THREE.Vector3().crossVectors(up, direction).normalize();
+      const screenUp = new THREE.Vector3().crossVectors(direction, right).normalize();
+      const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      const tanX = tanY * camera.aspect;
+      let distance = camera.position.distanceTo(marker.position);
+      // At close zoom a deep point and its entry can be 24+ cm apart. Fit
+      // BOTH ends (with margin), otherwise the entry/guide leaves the stage.
+      for (const point of [lineAnchor, marker.position]) {
+        const offset = point.clone().sub(target);
+        distance = Math.max(distance, offset.dot(direction) + Math.max(
+          (Math.abs(offset.dot(right)) + 0.015) / (tanX * 0.8),
+          (Math.abs(offset.dot(screenUp)) + 0.015) / (tanY * 0.8)
+        ));
+      }
+      distance = THREE.MathUtils.clamp(distance, controls.minDistance, controls.maxDistance);
+      viewAnim = {
+        from: camera.position.clone(), to: target.clone().addScaledVector(direction, distance),
+        targetFrom: controls.target.clone(), targetTo: target,
+        start: performance.now(), duration: 340,
+      };
+      return true;
+    }
+    depthViewButton.addEventListener('click', showDepthView);
+
+    function stepViewAnimation(now) {
+      if (!viewAnim) return;
+      const t = Math.min(1, (now - viewAnim.start) / viewAnim.duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      if (viewAnim.orbit) {
+        const orbit = viewAnim.orbit;
+        const y = THREE.MathUtils.lerp(orbit.fromY, orbit.toY, eased);
+        // The start may itself be an interrupted close-up. Interpolate from
+        // that exact radius to the stable destination radius. For a settled
+        // camera these are equal, so every frame stays at exactly one scale.
+        const animatedDistance = THREE.MathUtils.lerp(
+          orbit.fromDistance,
+          orbit.toDistance,
+          eased
+        );
+        const horizontalDistance = Math.sqrt(Math.max(0, animatedDistance * animatedDistance - y * y));
+        const angle = orbit.fromAngle + orbit.angleDelta * eased;
+        camera.position.set(
+          Math.sin(angle) * horizontalDistance,
+          y,
+          Math.cos(angle) * horizontalDistance
+        ).add(orbit.center);
+      } else {
+        camera.position.lerpVectors(viewAnim.from, viewAnim.to, eased);
+      }
+      if (viewAnim.targetTo) controls.target.lerpVectors(viewAnim.targetFrom, viewAnim.targetTo, eased);
+      if (t >= 1) {
+        camera.position.copy(viewAnim.to);
+        viewAnim = null;
+      }
+    }
+
+    function intersectLayer(layer) {
+      const root = roots.get(layer);
+      if (!root || !visibleLayers.has(layer)) return [];
+      return raycaster.intersectObject(root, true);
+    }
+
+    // Resolve the open-source anatomical structure directly underneath a skin
+    // pick. The neutral display shell is intentionally one continuous mesh, so
+    // its own object name cannot describe chest vs shoulder. Muscle/bone/organ
+    // exports still retain Z-Anatomy's per-structure names and stable IDs.
+    function nearestAnatomicalReference(origin, direction, far) {
+      let nearest = null;
+      for (const layer of ['muscle', 'bone', 'organ']) {
+        const root = roots.get(layer);
+        if (!root) continue;
+        raycaster.set(origin, direction);
+        raycaster.far = far;
+        const hits = raycaster.intersectObject(root, true);
+        if (!hits.length) continue;
+        const hit = hits[0];
+        if (!nearest || hit.distance < nearest.distance) nearest = hit;
+      }
+      return nearest;
+    }
+
+    // Raycast both sides without coupling depth bounds to the skin's display
+    // material. The generated skin is a hollow, connected shell: its inner
+    // wall is only 3–6 mm behind its outer wall in many areas.
+    function intersectSkinShell(caster = skinRaycaster) {
+      const root = roots.get('skin');
+      if (!root || !visibleLayers.has('skin')) return [];
+      const changed = [];
+      const seen = new Set();
+      root.traverse((node) => {
+        if (!node.isMesh || !node.material || node.material.colorWrite === false) return;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          if (seen.has(material)) return;
+          seen.add(material);
+          changed.push([material, material.side]);
+          material.side = THREE.DoubleSide;
+        });
+      });
+      try {
+        return caster.intersectObject(root, true);
+      } finally {
+        changed.forEach(([material, side]) => { material.side = side; });
+      }
+    }
+
+    function skinNormal(hit) {
+      return hit.face.normal.clone().applyMatrix3(
+        new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)
+      ).normalize();
+    }
+
+    // An outer wall can see the outside from its outward hemisphere. Inner
+    // walls see another skin wall in every direction. Testing visibility is
+    // essential here: normals or hit parity alone describe the thin shell's
+    // material, not the volume of the body it encloses.
+    function isOuterSkinHit(hit, normal) {
+      const directions = [normal];
+      for (const axis of [
+        new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
+        new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1),
+      ]) {
+        if (axis.dot(normal) > 0.05) directions.push(axis);
+      }
+      // Oblique probes can escape concavities (armpit / between the legs)
+      // even when the outward normal points directly at another body part.
+      const tangent = new THREE.Vector3().crossVectors(normal,
+        Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)
+      ).normalize();
+      const bitangent = new THREE.Vector3().crossVectors(normal, tangent);
+      for (const slope of [0.5, 2, 8]) {
+        for (let i = 0; i < 8; i++) {
+          const angle = i * Math.PI / 4;
+          directions.push(normal.clone()
+            .addScaledVector(tangent, Math.cos(angle) * slope)
+            .addScaledVector(bitangent, Math.sin(angle) * slope).normalize());
+        }
+      }
+      const clearDirections = [];
+      for (const direction of directions) {
+        skinRaycaster.set(hit.point.clone().addScaledVector(direction, 0.00002), direction);
+        skinRaycaster.far = Infinity;
+        if (intersectSkinShell().length === 0) {
+          // The exported shell has tiny openings. A single grazing probe
+          // can escape the head's inner cavity through one of them; require
+          // exposure across >20 degrees, not just one pinhole direction.
+          if (clearDirections.some((other) => other.dot(direction) < 0.94)) return true;
+          clearDirections.push(direction);
+        }
+      }
+      return false;
+    }
+
+    // Pair actual outer entry/exit faces, skipping the skin's inner walls.
+    // Choosing the very last hit would also cross a gap into a torso behind
+    // an arm; the first OUTER exit stops at the selected body part instead.
+    // After orbiting, prefer the interval containing the current marker.
+    function skinSegment(origin, direction, selectedPoint = null) {
+      roots.get('skin')?.updateWorldMatrix(true, true);
+      skinRaycaster.set(origin, direction);
+      skinRaycaster.far = Infinity;
+      const hits = intersectSkinShell();
+      const selectedDistance = selectedPoint
+        ? selectedPoint.clone().sub(origin).dot(direction) : null;
+      let entryHit = null;
+      for (const hit of hits) {
+        if (!hit.face) continue;
+        const normal = skinNormal(hit);
+        const facing = normal.dot(direction);
+        if (Math.abs(facing) < 1e-6) continue;
+        if (!entryHit) {
+          if (facing < 0 && (hit === hits[0] || isOuterSkinHit(hit, normal))) entryHit = hit;
+        } else if (facing > 0 && hit.distance > entryHit.distance + 0.0001
+                   && isOuterSkinHit(hit, normal)) {
+          const segment = { skinHits: [entryHit], entry: entryHit.distance, exit: hit.distance };
+          if (selectedDistance === null ||
+              (selectedDistance >= segment.entry - 0.0001 && selectedDistance <= segment.exit + 0.0001)) {
+            return segment;
+          }
+          entryHit = null;
+        }
+      }
+      return null;
+    }
+
+    function setMarkerDepth(depth) {
+      markerDepth = THREE.MathUtils.clamp(depth, 0, markerAvailableDepth);
+      marker.position.copy(lineAnchor).addScaledVector(markerInward, markerDepth);
+      if (surfaceMark) {
+        // Depth changes translate the draped mark with its centre; walking
+        // the skin again on every repeated button press is costly and can
+        // queue inputs on phones. Rebuild only when the anchor/frame changes.
+        surfaceMark.position.copy(marker.position).sub(surfaceMark.userData.markerPosition);
+      }
+      updateMarkerDepthAppearance();
+      updateDepthGuide();
+    }
+
+    // Plane movement preserves the previous depth under the newly chosen
+    // surface. Depth-only moves always reuse this entry/exit, even after orbit.
+    function placeOnRay(origin, direction, desiredDepth, segment = skinSegment(origin, direction)) {
+      if (!segment) return false;
+      markerAvailableDepth = Math.max(0, segment.exit - segment.entry);
+      lineAnchor = origin.clone().addScaledVector(direction, segment.entry);
+      markerInward = direction.clone();
+      markerSkinObject = segment.skinHits[0].object;
+      setMarkerDepth(desiredDepth || 0);
+      orientMarker(segment.skinHits[0]);
+      updateDepthGuide();
+      return true;
+    }
+
+    // A depth gesture moves along one fixed ray. All anatomical crossings
+    // and the surface-region name on that ray are unchanged until placement
+    // or a loaded model changes; do not raycast every mesh for every 1 cm step.
+    function markerRayData(origin, direction) {
+      if (markerRayCache && markerRayCache.anchor === lineAnchor &&
+          markerRayCache.inward === markerInward &&
+          markerRayCache.revision === anatomyRevision) return markerRayCache;
+      const hits = new Map();
+      for (const layer of PICK_ORDER) {
+        const root = roots.get(layer);
+        if (!root || (layer === 'skin' && markerSkinObject)) continue;
+        raycaster.set(origin, direction);
+        raycaster.far = Infinity;
+        hits.set(layer, raycaster.intersectObject(root, true));
+      }
+      markerRayCache = {
+        anchor: lineAnchor, inward: markerInward, revision: anatomyRevision, hits,
+        surfaceRegion: surfaceRegionOnRay(origin, direction, lineAnchor || marker.position),
+        skinBounds: new THREE.Box3().setFromObject(roots.get('skin')),
+      };
+      return markerRayCache;
+    }
+
+    // Describe the existing marker and tell Flutter. This function is
+    // intentionally read-only with respect to marker position: changing
+    // visible layers must never move a user's selected point.
+    function reportMarker(source, rebuildLine = true) {
+      if (!marker || !marker.visible) return false;
+      const direction = markerInward && markerInward.lengthSq() > 1e-10
+        ? markerInward.clone().normalize()
+        : marker.position.clone().sub(camera.position).normalize();
+      const anchor = lineAnchor || marker.position;
+      // Start outside the shell so intersections are measured monotonically
+      // from the same surface entry used by markerDepth.
+      const origin = anchor.clone().addScaledVector(direction, -0.01);
+      raycaster.set(origin, direction);
+      raycaster.far = Infinity;
+      const markerDistance = marker.position.distanceTo(origin);
+      const rayData = markerRayData(origin, direction);
+
+      let layer = 'skin';
+      let meshHit = markerSkinObject ? { object: markerSkinObject } : null;
+      if (!meshHit) {
+        const skinHits = rayData.hits.get('skin') || [];
+        if (!skinHits.length) return false;
+        meshHit = skinHits[0];
+      }
+      if (markerDepth > SURFACE_EPSILON) {
+        layer = 'muscle'; // inside, generic soft tissue until a layer is crossed
+        for (const candidate of PICK_ORDER) {
+          if (candidate === 'skin') continue;
+          const hits = visibleLayers.has(candidate) ? rayData.hits.get(candidate) || [] : [];
+          if (hits.length && hits[0].distance <= markerDistance + SURFACE_EPSILON) {
+            layer = candidate;
+            meshHit = hits[0];
+            break;
+          }
+        }
+      }
+      const meshId = meshHit.object.userData.bodyPartId || meshHit.object.name || meshHit.object.uuid;
+      const selectedLayer = meshHit.object.userData.zhitengLayer;
+      let anatomicalHit = selectedLayer && selectedLayer !== 'skin' ? meshHit : null;
+      if (!anatomicalHit) {
+        const far = 0.01 + markerAvailableDepth + SURFACE_EPSILON;
+        for (const candidate of ['muscle', 'bone', 'organ']) {
+          const hit = (rayData.hits.get(candidate) || [])[0];
+          if (hit && hit.distance <= far && (!anatomicalHit || hit.distance < anatomicalHit.distance)) {
+            anatomicalHit = hit;
+          }
+        }
+      }
+      const anatomicalObject = anatomicalHit && anatomicalHit.object;
+      const anatomicalSourceName = anatomicalObject && (
+        anatomicalObject.userData.zt_source_name || anatomicalObject.name
+      );
+      const anatomicalStructureId = anatomicalObject && (
+        anatomicalObject.userData.bodyPartId || anatomicalObject.name || anatomicalObject.uuid
+      );
+      const surfaceRegionObject = rayData.surfaceRegion;
+      const surfaceRegionId = surfaceRegionObject && (
+        surfaceRegionObject.userData.bodyPartId || surfaceRegionObject.name || surfaceRegionObject.uuid
+      );
+      const surfaceRegionSourceName = surfaceRegionObject && (
+        surfaceRegionObject.userData.zt_source_name || surfaceRegionObject.name
+      );
+      const projected = marker.position.clone().project(camera);
+      // Naming is based on the original skin point in body coordinates,
+      // never screen Y (which changes under region framing and camera orbit).
+      const skinBounds = rayData.skinBounds;
+      const bodyHeight = Math.max(skinBounds.max.y - skinBounds.min.y, 0.001);
+      post('pick', {
+        normalizedX: Number(((projected.x + 1) / 2).toFixed(4)),
+        normalizedY: Number(((1 - projected.y) / 2).toFixed(4)),
+        localX: Number(marker.position.x.toFixed(4)),
+        localY: Number(marker.position.y.toFixed(4)),
+        localZ: Number(marker.position.z.toFixed(4)),
+        depth: Number(markerDepth.toFixed(4)),
+        bodyHeightFraction: (anchor.y - skinBounds.min.y) / bodyHeight,
+        bodyLateralFraction: Math.abs(anchor.x - (skinBounds.min.x + skinBounds.max.x) / 2) / bodyHeight,
+        meshId, bodyPartId: surfaceRegionId || meshId,
+        surfaceRegionId,
+        surfaceRegionSourceName,
+        anatomicalStructureId,
+        anatomicalSourceName,
+        layer,
+        source,
+        view: currentView(), bodyModelVersion: modelVersion
+      });
+      if (rebuildLine && markerShape !== 'point') rebuildSurfaceMark();
+      return true;
+    }
+
+    function pick(clientX, clientY) {
+      if (pointerHitsStageControl(clientX, clientY)) return;
+      if (!frameRoot()) return;
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      camera.updateWorldMatrix(true, false);
+      raycaster.far = Infinity; // surface-line probes use a short 14 cm ray
+      raycaster.setFromCamera(pointer, camera);
+      // A tap lands on the skin (like the reference app); the depth control
+      // then pushes the point inward. Inner layers are only picked directly
+      // where there is no skin under the finger.
+      let hit = null;
+      for (const layer of ['skin', ...PICK_ORDER.filter((layer) => layer !== 'skin')]) {
+        const hits = intersectLayer(layer);
+        if (hits.length) { hit = hits[0]; break; }
+      }
+      if (!hit) return;
+      ensureMarker();
+      marker.visible = true;
+      const direction = hit.point.clone().sub(camera.position).normalize();
+      if (!placeOnRay(camera.position.clone(), direction, 0)) {
+        marker.visible = false;
+        updateDepthGuide();
+        clearSurfaceMark();
+        return;
+      }
+      reportMarker('tap');
+    }
+
+    // Joystick input from Flutter. dx / dy move in the screen plane. dz moves
+    // along the saved placement ray (positive = deeper), independent of the
+    // current camera. Metres. A move that would leave the body is
+    // rejected; a surface point stays on the surface when moved in the plane
+    // so it slides over the skin instead of sinking into it.
+    function nudge(dx, dy, dz) {
+      if (!marker || !marker.visible) return false;
+      if (dz && !dx && !dy) {
+        if (!lineAnchor || !markerInward) return false;
+        setMarkerDepth(markerDepth + dz);
+        reportMarker('depth', false);
+        return true;
+      }
+      camera.updateWorldMatrix(true, false);
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      const candidate = marker.position.clone()
+        .addScaledVector(right, dx || 0)
+        .addScaledVector(up, dy || 0);
+      const direction = candidate.sub(camera.position);
+      if (direction.lengthSq() < 1e-10) return false;
+      direction.normalize();
+
+      if (!placeOnRay(camera.position.clone(), direction, markerDepth + (dz || 0))) return false;
+      reportMarker('nudge');
+      return true;
+    }
+
+    function updateCrosshair() {
+      const show = crosshairOn && marker && marker.visible;
+      crosshairEl.style.display = show ? 'block' : 'none';
+      if (!show) return;
+      const projected = marker.position.clone().project(camera);
+      const x = (projected.x + 1) / 2 * canvas.clientWidth;
+      const y = (1 - projected.y) / 2 * canvas.clientHeight;
+      crosshairH.style.top = `${y}px`;
+      crosshairV.style.left = `${x}px`;
+      crosshairBox.style.left = `${x}px`;
+      crosshairBox.style.top = `${y}px`;
+    }
+
+    // True when a tap lands on Flutter chrome or a measured control. Those
+    // widgets sit above this page, but the platform WebView can still be
+    // handed the same pointer and would otherwise drop a new pain point
+    // directly under the depth pad, sliders, or other tools.
+    function pointerHitsStageControl(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width || canvas.clientWidth || 0;
+      const height = rect.height || canvas.clientHeight || 0;
+      if (width <= 0 || height <= 0) return false;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      if (y <= stageTopChrome || y >= height - stageBottomChrome) return true;
+      for (let i = 0; i < placementShields.length; i++) {
+        const shield = placementShields[i];
+        if (x >= shield.x && y >= shield.y &&
+            x <= shield.x + shield.w && y <= shield.y + shield.h) return true;
+      }
+      return false;
+    }
+
+    function layoutPointerShields() {
+      const host = document.getElementById('pointer-shields');
+      if (!host || typeof host.replaceChildren !== 'function' ||
+          typeof document.createElement !== 'function') return;
+      const width = canvas.clientWidth || window.innerWidth || 0;
+      const height = canvas.clientHeight || window.innerHeight || 0;
+      const rects = [];
+      if (stageTopChrome > 0) rects.push({ x: 0, y: 0, w: width, h: stageTopChrome });
+      if (stageBottomChrome > 0) {
+        rects.push({
+          x: 0,
+          y: Math.max(0, height - stageBottomChrome),
+          w: width,
+          h: stageBottomChrome,
+        });
+      }
+      for (let i = 0; i < placementShields.length; i++) rects.push(placementShields[i]);
+      host.replaceChildren(...rects.filter((rect) => rect.w >= 1 && rect.h >= 1).map((rect) => {
+        const node = document.createElement('div');
+        node.style.cssText =
+          'position:absolute;left:' + rect.x + 'px;top:' + rect.y + 'px;width:' +
+          rect.w + 'px;height:' + rect.h + 'px;';
+        return node;
+      }));
+    }
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    canvas.addEventListener('pointerdown', (event) => {
+      if (pointerHitsStageControl(event.clientX, event.clientY)) {
+        dragging = false;
+        return;
+      }
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointercancel', () => { dragging = false; });
+    canvas.addEventListener('pointerup', (event) => {
+      if (!dragging) return;
+      dragging = false;
+      if (placementEnabled &&
+          !pointerHitsStageControl(event.clientX, event.clientY) &&
+          Math.hypot(event.clientX - startX, event.clientY - startY) < 6) {
+        pick(event.clientX, event.clientY);
+      }
+    });
+
+    window.ZhitengBridge = {
+      registerModel(layer, url) {
+        modelUrls.set(layer, url);
+        if (visibleLayers.has(layer)) loadLayer(layer);
+      },
+      // Registering a local URL never reads it. Flutter calls this only after
+      // the skin's first frame; organ is intentionally never in that queue.
+      preloadLayer(layer) {
+        return layer === 'region' ? loadSurfaceRegions() : loadLayer(layer);
+      },
+      setModelVersion(version) {
+        if (version) modelVersion = String(version);
+      },
+      // History snapshots use #2f2f2f in dark mode. The canvas stays clear so
+      // this page background is the stage the model sits on.
+      setStageBackground(color) {
+        const next = color || '#fcfcfc';
+        const dark = String(next).toLowerCase() !== '#fcfcfc';
+        if (window.applyStageChrome) window.applyStageChrome(dark);
+        const root = document.documentElement;
+        root.style.setProperty('--stage-color', next);
+        root.style.backgroundColor = next;
+        if (document.body) document.body.style.backgroundColor = next;
+      },
+      // Comma-separated or array of layer ids to show under the skin.
+      setLayers(layers) {
+        const list = Array.isArray(layers) ? layers : String(layers || '').split(',').map((s) => s.trim()).filter(Boolean);
+        return applyLayers(list);
+      },
+      // Back-compat: a single layer id behaves like "skin + that layer".
+      setLayer(layer) { return applyLayers([layer || 'skin']); },
+      // 'all' | 'heart' | 'lung' | 'hepatobiliary' | 'digestive' | 'urinary'.
+      // Non-selected groups are dimmed by default and can be fully isolated.
+      setOrganGroup(group, isolate, focus) {
+        return setOrganGroup(String(group || 'all'), !!isolate, focus !== false);
+      },
+      focusBone() {
+        const request = ++cameraRequestId;
+        return loadLayer('bone').then(() => request === cameraRequestId &&
+          visibleLayers.has('bone') && focusBoneLayer(true));
+      },
+      setRegion(value, keepDirection) {
+        const next = value || 'full';
+        const preserve = !!keepDirection || userAdjustedView || !!pendingView;
+        // Model-ready and widget rebuilds repeat the current region. That
+        // must not pull the camera back to the default front framing.
+        if (cameraSettled && next === region && !keepDirection) return;
+        cameraRequestId++;
+        frameRegion(next, preserve);
+      },
+      resetView() {
+        cameraRequestId++;
+        viewAnim = null;
+        pendingView = null;
+        userAdjustedView = false;
+        frameRegion(region, false);
+      },
+      // 'front' | 'back' | 'left' | 'right' (anatomical sides).
+      setView(view) { setView(view); },
+      currentView() { return currentView(); },
+      // Coordinates are updated synchronously. Saving flushes their final
+      // report without blocking the UI on cosmetic surface-mesh sampling.
+      flushControls() { return reportMarker('flush', false); },
+      // History review can orbit, zoom and open the depth view, but a tap
+      // must not move the saved point.
+      setPlacementEnabled(on) { placementEnabled = !!on; },
+      cameraFrame() {
+        const distance = camera.position.distanceTo(controls.target);
+        const zoom = fitDistance > 0 && distance > 0 ? fitDistance / distance : 1;
+        return {
+          zoom: Number(zoom.toFixed(4)),
+          distance: Number(distance.toFixed(4)),
+          fitDistance: Number(fitDistance.toFixed(4)),
+          targetX: Number(controls.target.x.toFixed(4)),
+          targetY: Number(controls.target.y.toFixed(4)),
+          targetZ: Number(controls.target.z.toFixed(4)),
+          view: currentView(),
+        };
+      },
+      controlsState() {
+        return {
+          ready: roots.has('skin'), layers: [...visibleLayers],
+          view: currentView(), region, organGroup: activeOrganGroup,
+          markerScale, lineLength, lineAngle,
+          marker: marker && marker.visible ? {
+            localX: marker.position.x, localY: marker.position.y,
+            localZ: marker.position.z, depth: markerDepth,
+          } : null,
+          surfacePending: surfaceRevision !== surfaceBuiltRevision,
+          surfaceBuilds, surfaceRequests: surfaceRevision,
+        };
+      },
+      // Joystick: metres in the screen plane (dx, dy) and saved placement ray (dz).
+      nudge(dx, dy, dz) { return nudge(Number(dx) || 0, Number(dy) || 0, Number(dz) || 0); },
+      setCrosshair(on) { crosshairOn = !!on; },
+      // Keep parsing/preloading while the 2D map covers this WebView, but do
+      // not spend GPU time drawing an invisible stage every frame.
+      setActive(on) {
+        viewerActive = !!on;
+        if (viewerActive) reframeIfStageResized();
+      },
+      setPlacementShields(rects) {
+        placementShields = (Array.isArray(rects) ? rects : []).map((rect) => ({
+          x: Number(rect && rect.x) || 0,
+          y: Number(rect && rect.y) || 0,
+          w: Number(rect && rect.w) || 0,
+          h: Number(rect && rect.h) || 0,
+        })).filter((rect) => rect.w >= 1 && rect.h >= 1);
+        layoutPointerShields();
+      },
+      setStageChrome(top, bottom) {
+        const nextTop = Math.max(0, Number(top) || 0);
+        const nextBottom = Math.max(0, Number(bottom) || 0);
+        if (Math.abs(nextTop - stageTopChrome) < 1 &&
+            Math.abs(nextBottom - stageBottomChrome) < 1) return;
+        stageTopChrome = nextTop;
+        stageBottomChrome = nextBottom;
+        placeDepthViewButton();
+        layoutPointerShields();
+        if (userZoomed) {
+          // 点 / 片 / 线 / 放射 only changes the marker. The line control
+          // also changes dock height; that must not zoom the model.
+          return;
+        }
+        if (organFocusActive && heldFocusKind === 'bone') {
+          // Refit the skeleton into the band that is still visible so it
+          // stays in the middle instead of being pushed off the top.
+          focusBoneLayer(false);
+          return;
+        }
+        if (organFocusActive) {
+          // The dock grew or shrank. Keep the focused organ in the middle
+          // of the band that is still visible.
+          holdOrganInClearBand();
+          return;
+        }
+        framedViewHeight = 0;
+        // A tap or orbit used to freeze the camera, so an expanding dock
+        // covered the feet. Reframe into the new band and keep the side.
+        frameRegion(region, userAdjustedView || !!pendingView);
+      },
+      clearMarker() {
+        if (marker) marker.visible = false;
+        markerDepth = 0;
+        markerAvailableDepth = 0;
+        lineAnchor = null;
+        markerInward = null;
+        markerSkinObject = null;
+        updateMarkerDepthAppearance();
+        updateDepthGuide();
+        rebuildSurfaceMark();
+        lineSampleCache = null;
+      },
+      // Marks already saved on this record. They stay on the body while the
+      // active marker moves to the next spot.
+      setPinnedMarkers(list) { setPinnedMarkers(list); },
+      // Put the active marker back on a previously saved 3D coordinate so
+      // that spot can be moved again.
+      restoreMarker(x, y, z, depth) {
+        return restoreMarker(Number(x), Number(y), Number(z), depth == null ? NaN : Number(depth));
+      },
+      // 'point' | 'area' | 'line' | 'radiate'
+      setShape(shape) { setMarkerShape(String(shape || 'point')); },
+      // Indicator size multiplier (0.3 .. 4). For a line this is thickness.
+      setMarkerScale(scale) { setMarkerScale(scale); },
+      // Line arc length, multiple of the 16 cm base.
+      setLineLength(length) { setLineLength(length); },
+      // Radians around the outward normal. Re-drapes the stroke on the skin.
+      setLineAngle(angle) { setLineAngle(angle); },
+      // Whole-body zoom: factor > 1 zooms in, < 1 zooms out.
+      zoom(factor) { dolly(Number(factor) || 1); }
+    };
+
+    // ---- 2D asset export (tooling; never taken by the app at runtime) ----
+    // body3d.html?render2d=front|back|left|right draws the default layer
+    // stack through an orthographic camera framed exactly like the Blender
+    // ortho renders (build_from_zanatomy.render_views: ortho_scale =
+    // max(height * 1.08, width * 1.75) over the skin bounds, camera on the
+    // view axis through the bounds centre). The 2D map therefore has the
+    // same material, lighting and colours as the 3D stage while still lining
+    // up with the Blender region masks. Driven by scripts/render_2d_from_viewer.py.
+    const RENDER2D_PARAMS = new URLSearchParams(location.search);
+    const RENDER2D = RENDER2D_PARAMS.get('render2d');
+    const RENDER2D_ANGLE_RAW = RENDER2D_PARAMS.get('render2dAngle');
+    const RENDER2D_ANGLE = RENDER2D_ANGLE_RAW === null
+      ? Number.NaN
+      : Number(RENDER2D_ANGLE_RAW);
+    const RENDER2D_DIRECTION = Number.isFinite(RENDER2D_ANGLE)
+      ? [
+          Math.sin(THREE.MathUtils.degToRad(RENDER2D_ANGLE)),
+          0,
+          Math.cos(THREE.MathUtils.degToRad(RENDER2D_ANGLE)),
+        ]
+      : VIEW_DIRECTIONS[RENDER2D];
+    const RENDER2D_LAYER_PARAM = RENDER2D_PARAMS.get('render2dLayers');
+    const RENDER2D_EXPORT_LAYERS = RENDER2D_LAYER_PARAM
+      ? RENDER2D_LAYER_PARAM.split(',').map((layer) => layer.trim()).filter(Boolean)
+      : RENDER2D_LAYERS;
+    // Relative Flutter asset URLs let WKWebView/Android WebView stream the
+    // bundled GLBs directly. No Base64 conversion or multi-megabyte script
+    // injection is needed. Registration itself performs no I/O.
+    if (!window.ZHITENG_MODEL_URLS) {
+      window.ZHITENG_MODEL_URLS = Object.fromEntries(
+        ['skin', 'region', 'muscle', 'bone', 'organ'].map(
+          (layer) => [layer, `../models/${layer}.glb`]
+        )
+      );
+    }
+    if (RENDER2D && RENDER2D_DIRECTION) {
+      // Headless Chrome screenshots on the window load event. Keep that event
+      // pending with an image whose URL the export server only answers after
+      // we have reported the first finished frame via the ready URL.
+      const holdUrl = RENDER2D_PARAMS.get('hold');
+      const readyUrl = RENDER2D_PARAMS.get('ready');
+      if (holdUrl) { const holder = new Image(); holder.src = holdUrl; }
+      document.documentElement.style.background = 'transparent';
+      document.body.style.background = 'transparent';
+      statusEl.style.display = 'none';
+      crosshairOn = false;
+      controls.enabled = false;
+      renderer.setPixelRatio(1);
+      window.ZHITENG_ACTIVE_LAYERS = RENDER2D_EXPORT_LAYERS;
+      const whenLoaded = () => {
+        const skin = roots.get('skin');
+        if (!skin) return;
+        box.setFromObject(skin);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const width = canvas.clientWidth || 768;
+        const height = canvas.clientHeight || 1280;
+        const orthoScale = Math.max(size.y * 1.08, size.x * 1.75); // Blender covers the taller side
+        const halfH = orthoScale / 2;
+        const halfW = halfH * width / height;
+        const ortho = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.01, 100);
+        const direction = RENDER2D_DIRECTION;
+        const distance = Math.max(size.length(), 2) * 2.2;
+        ortho.position.copy(center).addScaledVector(new THREE.Vector3(direction[0], direction[1], direction[2]), distance);
+        ortho.up.set(0, 1, 0);
+        ortho.lookAt(center);
+        ortho.updateProjectionMatrix();
+        ortho.add(key); // same camera-relative key light as the 3D stage
+        scene.add(ortho);
+        renderCamera = ortho;
+        window.ZHITENG_RENDER2D = { view: RENDER2D, orthoScale, size: size.toArray(), center: center.toArray() };
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          document.title = 'render2d-ready';
+          if (readyUrl) fetch(readyUrl, { cache: 'no-store' }).catch(() => {});
+        }));
+      };
+      window.ZhitengBridge.setLayers = function (layers) {
+        return applyLayers(layers).then(whenLoaded);
+      };
+    }
+
+    Object.entries(window.ZHITENG_MODEL_URLS || {}).forEach(([layer, url]) => {
+      window.ZhitengBridge.registerModel(layer, url);
+    });
+    window.ZhitengBridge.setLayers(window.ZHITENG_ACTIVE_LAYERS || DEFAULT_LAYERS);
+
+    window.addEventListener('resize', resize);
+    resize();
+    function tick(now) {
+      // Even while hidden behind the default 2D locator, draw the one skin
+      // frame required to make the 3D-ready milestone truthful.
+      if (!viewerActive && !RENDER2D && !skinFirstFramePending) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      if (viewerActive || RENDER2D) stepSurfaceMark();
+      stepViewAnimation(now || performance.now());
+      controls.update();
+      const size = renderer.getSize(new THREE.Vector2());
+      if (size.x !== canvas.clientWidth || size.y !== canvas.clientHeight) resize();
+      updateStageGrid();
+      renderer.render(scene, renderCamera);
+      if (skinFirstFramePending) {
+        skinFirstFramePending = false;
+        post('skinFirstFrame', {
+          ok: true,
+          layer: 'skin',
+          bodyModelVersion: modelVersion,
+        });
+      }
+      updateCrosshair();
+      // A named-view animation can pass through another canonical direction.
+      // Do not report that transient direction to Flutter: it would make the
+      // selected view tab flash to an intermediate option during the turn.
+      if (frameRoot() && !viewAnim) {
+        const view = currentView();
+        if (view !== lastView) { lastView = view; post('view', { view }); }
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "startedAt": "2026-09-28T12:32:03.621840Z",
+  "checks": [
+    {
+      "check": "initial",
+      "zoom": 1.0,
+      "distance": 4.8278,
+      "fitDistance": 4.8278,
+      "target": [
+        -0.0003,
+        1.0824,
+        -0.0043
+      ]
+    },
+    {
+      "check": "turn-midpoint",
+      "zoom": 1.0,
+      "distance": 4.8278,
+      "fitDistance": 4.8278,
+      "target": [
+        -0.0003,
+        1.0824,
+        -0.0043
+      ]
+    },
+    {
+      "check": "first-burst",
+      "zoom": 1.0,
+      "distance": 4.8278,
+      "fitDistance": 4.8278,
+      "target": [
+        -0.0003,
+        1.0824,
+        -0.0043
+      ]
+    },
+    {
+      "check": "second-burst",
+      "zoom": 1.0,
+      "distance": 4.8278,
+      "fitDistance": 4.8278,
+      "target": [
+        -0.0003,
+        1.0824,
+        -0.0043
+      ]
+    },
+    {
+      "check": "layout-reframe-during-turn",
+      "zoom": 1.0,
+      "distance": 5.0737,
+      "fitDistance": 5.0737,
+      "target": [
+        -0.0003,
+        1.0992,
+        -0.0043
+      ]
+    },
+    {
+      "check": "restored-layout",
+      "zoom": 1.0,
+      "distance": 4.8278,
+      "fitDistance": 4.8278,
+      "target": [
+        -0.0003,
+        1.0824,
+        -0.0043
+      ]
+    }
+  ],
+  "passed": true,
+  "finishedAt": "2026-09-28T12:32:15.947809Z"
+}

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>知疼｜小程序交互线稿</title>
+  <meta name="description" content="疼痛记录微信小程序低保真交互线稿" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f3337'/%3E%3Cpath d='M32 13c-6 0-10 5-10 11v8l-6 10c-2 4 1 9 6 9h20c5 0 8-5 6-9l-6-10v-8c0-6-4-11-10-11Z' fill='none' stroke='white' stroke-width='4'/%3E%3Ccircle cx='32' cy='29' r='4' fill='%23e25b45'/%3E%3C/svg%3E" />
+  <style>
+    :root{--paper:#f4f4f1;--ink:#25282b;--muted:#70767c;--line:#b8bdc1;--soft:#e7e8e6;--card:#fff;--accent:#d85c49;--accent-soft:#f7e5e1;--dark:#202326}
+    *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.45}
+    button,input{font:inherit} button{color:inherit}.workspace{min-height:100vh;display:grid;grid-template-columns:260px minmax(390px,1fr) 280px;gap:24px;padding:24px;align-items:start}
+    .panel{background:#fafaf8;border:1px solid var(--line);border-radius:18px;padding:18px;position:sticky;top:24px}.brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}.brand-mark{width:34px;height:34px;border:2px solid var(--ink);border-radius:10px;display:grid;place-items:center;font-weight:700}.brand h1{font-size:18px;margin:0}.brand small,.eyebrow,.meta{font-size:12px;color:var(--muted)}
+    .flow-title{font-size:13px;font-weight:700;margin:16px 0 8px}.flow-list{display:grid;gap:8px}.flow-link{width:100%;border:1px solid transparent;border-radius:10px;background:transparent;padding:9px 10px;text-align:left;cursor:pointer;font-size:14px}.flow-link:hover,.flow-link.active{background:#fff;border-color:var(--line)}.flow-link span{display:inline-grid;place-items:center;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;margin-right:8px;font-size:12px}.flow-link.active span{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .legend{border-top:1px dashed var(--line);margin-top:16px;padding-top:14px;font-size:12px;color:var(--muted)}.legend b{color:var(--ink)}.key{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:#fff;color:var(--ink)}
+    .stage{display:grid;place-items:center;min-height:calc(100vh - 48px)}.phone{width:390px;height:844px;background:#fff;border:2px solid var(--ink);border-radius:38px;box-shadow:0 18px 40px #20232618;overflow:hidden;position:relative}.phone::before{content:"";position:absolute;z-index:30;top:9px;left:50%;transform:translateX(-50%);width:104px;height:25px;border-radius:18px;background:var(--dark)}
+    .statusbar{height:46px;padding:14px 23px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:650;background:#fff}.screen{height:calc(100% - 46px);display:none;flex-direction:column;background:#fff}.screen.active{display:flex}.appbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--soft);flex:0 0 auto}.appbar h2{font-size:18px;margin:0}.icon-btn{border:0;background:transparent;padding:9px;min-width:40px;cursor:pointer}.back{text-align:left;font-size:22px}.screen-body{padding:18px;overflow:auto;flex:1}.screen-body.with-tabs{padding-bottom:90px}
+    h3{font-size:18px;margin:0 0 8px}p{margin:0}.hint{font-size:13px;color:var(--muted)}.section{margin-bottom:20px}.row{display:flex;align-items:center}.between{justify-content:space-between}.gap{gap:10px}.stack{display:grid;gap:10px}.card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px}.card.dashed{border-style:dashed}.card.selected{border:2px solid var(--ink);padding:13px}.card-title{font-weight:700}.pill{border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:#fff;cursor:pointer;font-size:13px}.pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}.badge{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--soft)}.badge.live{background:var(--accent-soft);color:#923928}.btn{width:100%;min-height:48px;border:1.5px solid var(--ink);border-radius:12px;background:#fff;font-weight:700;cursor:pointer}.btn.primary{background:var(--ink);color:#fff}.btn.soft{border-color:var(--line);background:var(--soft)}.btn.danger{color:#a53e31;border-color:#ca8c82}.btn-row{display:grid;grid-template-columns:1fr 1.7fr;gap:10px}.text-link{border:0;background:transparent;text-decoration:underline;color:var(--muted);cursor:pointer;padding:5px}
+    .body-map{height:294px;border:1px solid var(--line);border-radius:18px;background:repeating-linear-gradient(0deg,#fff,#fff 23px,#f4f4f1 24px);position:relative;overflow:hidden;display:grid;place-items:center}.human{width:150px;height:270px;position:relative}.human svg{width:100%;height:100%;fill:#f6f6f4;stroke:#6d7276;stroke-width:2}.pain-dot{position:absolute;width:26px;height:26px;border-radius:50%;background:#d85c4966;border:2px solid var(--accent);cursor:pointer}.pain-dot::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--accent)}.pain-dot.head{top:30px;left:93px}.pain-dot.knee{top:190px;left:40px}.map-tools{position:absolute;right:9px;top:9px;display:grid;gap:7px}.map-tool{width:38px;height:38px;border:1px solid var(--line);background:#fff;border-radius:9px}.view-toggle{position:absolute;left:10px;bottom:10px;display:flex;background:#fff;border:1px solid var(--line);border-radius:9px;overflow:hidden}.view-toggle button{border:0;background:#fff;padding:7px 10px;font-size:12px}.view-toggle .active{background:var(--ink);color:#fff}.focus-card{display:grid;grid-template-columns:74px 1fr;gap:12px;align-items:center;cursor:pointer}.mini-body{height:86px;border:1px solid var(--line);border-radius:10px;background:var(--soft);display:grid;place-items:center;font-size:28px}.focus-card + .focus-card{margin-top:10px}.quick{position:sticky;bottom:78px;margin-top:18px}.tabbar{position:absolute;bottom:0;left:0;right:0;height:76px;border-top:1px solid var(--line);background:#fff;display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px 12px;z-index:10}.tab{border:0;background:#fff;font-size:11px;color:var(--muted);cursor:pointer}.tab b{display:block;font-size:20px;line-height:26px;font-weight:400}.tab.active{color:var(--ink);font-weight:700}
+    .progress{display:flex;gap:5px;padding:12px 18px 0}.progress i{height:3px;background:var(--soft);flex:1;border-radius:2px}.progress i.done{background:var(--ink)}.step-label{font-size:12px;color:var(--muted);margin:10px 0 14px}.intensity-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.intensity{height:72px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer;padding:5px}.intensity strong{display:block;font-size:19px}.intensity small{font-size:11px;color:var(--muted)}.intensity.active{border:2px solid var(--accent);background:var(--accent-soft);padding:4px}.option-list{display:grid;gap:9px}.option{border:1px solid var(--line);background:#fff;border-radius:12px;padding:13px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer}.radio{width:20px;height:20px;border:1.5px solid var(--line);border-radius:50%}.option.active{border:2px solid var(--ink);padding:12px}.option.active .radio{border:6px solid var(--ink)}
+    .success{text-align:center;padding-top:36px}.check{width:72px;height:72px;border:2px solid var(--ink);border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;font-size:36px}.summary-card{text-align:left;margin:25px 0}.summary-line{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:10px 0}.summary-line:last-child{border:0}.note-callout{border-left:3px solid var(--ink);padding:8px 0 8px 12px;color:var(--muted);font-size:13px}
+    .ongoing{background:#f7f7f5;border:1px solid var(--ink)}.timeline{position:relative;padding-left:24px}.timeline::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;border-left:1px solid var(--line)}.event{position:relative;margin-bottom:18px}.event::before{content:"";position:absolute;width:11px;height:11px;border:2px solid var(--ink);background:#fff;border-radius:50%;left:-22px;top:4px}.event time{font-size:12px;color:var(--muted)}.event b{display:block;font-size:14px}.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12px}.calendar b{color:var(--muted);font-weight:500;padding:5px}.day{height:36px;display:grid;place-items:center;border-radius:50%;position:relative}.day.has::after{content:"";width:5px;height:5px;background:var(--accent);position:absolute;bottom:1px;border-radius:50%}.day.today{border:1px solid var(--ink)}
+    .chart{height:126px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;margin:14px 8px 0 22px;background:linear-gradient(to top,transparent 31%,#eee 32%,transparent 33%,transparent 65%,#eee 66%,transparent 67%)}.chart svg{position:absolute;inset:0;width:100%;height:100%}.bar-chart{height:118px;display:flex;align-items:end;gap:16px;border-bottom:1px solid var(--line);padding:0 14px}.bar{width:38px;background:#c9ccce;border:1px solid #777;border-bottom:0;position:relative}.bar b{position:absolute;top:-23px;width:100%;text-align:center;font-size:12px}.bar span{position:absolute;bottom:-26px;width:70px;left:-16px;text-align:center;font-size:11px}.report-preview{font-size:13px}.report-preview h4{margin:0 0 8px;font-size:15px}.report-preview ul{padding-left:18px;margin:7px 0}.checkbox{width:20px;height:20px;border:1px solid var(--line);border-radius:5px;display:grid;place-items:center}.checkbox.on{background:var(--ink);color:#fff}.switch{width:44px;height:25px;border-radius:20px;background:#bbb;padding:3px}.switch i{display:block;width:19px;height:19px;border-radius:50%;background:#fff}.switch.on{background:var(--ink)}.switch.on i{margin-left:19px}
+    .annotation h2{font-size:17px;margin:0 0 8px}.annotation ul{padding-left:18px;font-size:13px;color:var(--muted)}.annotation li{margin:8px 0}.annotation .rule{padding:12px;border:1px dashed var(--line);border-radius:10px;font-size:13px;margin-top:12px}.annotation .rule b{display:block;margin-bottom:4px}.route{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);padding:5px 8px;border-radius:6px;display:inline-block}.toast{position:absolute;left:50%;bottom:94px;transform:translate(-50%,20px);background:var(--dark);color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:20}.toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:980px){.workspace{grid-template-columns:1fr;padding:10px}.panel,.annotation{display:none}.stage{min-height:auto}.phone{width:min(390px,100vw - 20px);height:min(844px,calc(100vh - 20px));border-radius:28px}}
+  </style>
+</head>
+<body>
+  <main class="workspace">
+    <aside class="panel">
+      <div class="brand"><div class="brand-mark">痛</div><div><h1>知疼 · 小程序线稿</h1><small>低保真 / 可点击</small></div></div>
+      <div class="flow-title">主流程</div>
+      <nav class="flow-list">
+        <button class="flow-link active" data-go="home"><span>1</span>首页 / 关注部位</button>
+        <button class="flow-link" data-go="locate"><span>2</span>选择疼痛位置</button>
+        <button class="flow-link" data-go="describe"><span>3</span>强度与状态</button>
+        <button class="flow-link" data-go="saved"><span>4</span>快速保存结果</button>
+        <button class="flow-link" data-go="ongoing"><span>5</span>进行中 / 补充变化</button>
+      </nav>
+      <div class="flow-title">回顾与输出</div>
+      <nav class="flow-list">
+        <button class="flow-link" data-go="history"><span>6</span>历史 / 日历</button>
+        <button class="flow-link" data-go="detail"><span>7</span>单次记录详情</button>
+        <button class="flow-link" data-go="insights"><span>8</span>趋势</button>
+        <button class="flow-link" data-go="report"><span>9</span>就医摘要</button>
+        <button class="flow-link" data-go="profile"><span>10</span>数据与隐私</button>
+      </nav>
+      <div class="legend"><b>操作：</b>点击左侧流程、手机里的按钮或底部导航。<br><br><span class="key">红色</span> 仅用于疼痛位置 / 强度，其余保持线稿灰阶。</div>
+    </aside>
+
+    <section class="stage">
+      <div class="phone" aria-label="小程序交互线稿">
+        <div class="statusbar"><span>9:41</span><span>● ◔ 100%</span></div>
+
+        <section class="screen active" id="home">
+          <header class="appbar"><div><span class="eyebrow">晚上好</span><h2>现在感觉怎么样？</h2></div><button class="icon-btn" data-go="profile">•••</button></header>
+          <div class="screen-body with-tabs">
+            <div class="section"><p class="hint">不需要知道准确部位，先在身体上找找看。</p></div>
+            <div class="card focus-card" data-go="locate"><div class="mini-body">◯</div><div><div class="row between"><b>头部 + 颈部</b><span>›</span></div><p class="hint">常用关注部位 · 点击开始记录</p></div></div>
+            <div class="card focus-card" data-go="locate"><div class="mini-body">⌁</div><div><div class="row between"><b>右侧膝盖</b><span>›</span></div><p class="hint">常用关注部位 · 点击开始记录</p></div></div>
+            <button class="card dashed row between" style="width:100%;margin-top:10px;cursor:pointer" data-go="locate"><span>＋ 记录其他部位</span><span>全身 ›</span></button>
+            <div class="section" style="margin-top:22px"><div class="row between"><h3>进行中</h3><button class="text-link" data-go="ongoing">查看</button></div><div class="card ongoing" data-go="ongoing" style="cursor:pointer"><div class="row between"><b>右侧太阳穴</b><span class="badge live">进行中 · 42 分钟</span></div><p class="hint" style="margin-top:7px">强度 7/10 · 跳痛</p><div class="row between" style="margin-top:12px"><span class="meta">14:20 开始</span><b>记录变化 ›</b></div></div></div>
+            <button class="btn primary quick" data-go="locate">＋ 记录一次疼痛</button>
+          </div>
+          <nav class="tabbar"><button class="tab active" data-go="home"><b>⌂</b>首页</button><button class="tab" data-go="history"><b>▦</b>记录</button><button class="tab" data-go="insights"><b>⌁</b>趋势</button><button class="tab" data-go="profile"><b>○</b>我的</button></nav>
+        </section>
+
+        <section class="screen" id="locate">
+          <header class="appbar"><button class="icon-btn back" data-go="home">‹</button><h2>哪里最接近你的感觉？</h2><button class="icon-btn">?</button></header>
+          <div class="progress"><i class="done"></i><i></i><i></i></div>
+          <div class="screen-body">
+            <p class="step-label">第 1 步 / 3 · 不需要准确，先点大概位置</p>
+            <div class="body-map">
+              <div class="human">
+                <svg viewBox="0 0 160 300" aria-label="中性人体正面示意"><circle cx="80" cy="30" r="22"/><path d="M56 58 Q80 50 104 58 L116 132 102 178 101 277 82 277 80 186 78 277 59 277 58 178 44 132Z"/><path d="M46 67 23 151M114 67 137 151"/></svg>
+                <button class="pain-dot head" aria-label="头部疼痛标记"></button>
+              </div>
+              <div class="map-tools"><button class="map-tool">●</button><button class="map-tool">▧</button><button class="map-tool">↶</button></div>
+              <div class="view-toggle"><button class="active">正面</button><button>背面</button></div>
+            </div>
+            <div class="row gap" style="margin-top:12px;flex-wrap:wrap"><button class="pill active">右侧太阳穴 ×</button><button class="pill">＋ 添加位置</button></div>
+            <div class="card" style="margin-top:16px"><div class="row between"><span><b>位置表达</b><br><span class="hint">可切换点选或范围涂抹</span></span><span>›</span></div></div>
+            <div class="btn-row" style="margin-top:16px"><button class="btn" data-go="home">取消</button><button class="btn primary" data-go="describe">下一步</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="describe">
+          <header class="appbar"><button class="icon-btn back" data-go="locate">‹</button><h2>这次大概有多痛？</h2><span style="width:40px"></span></header>
+          <div class="progress"><i class="done"></i><i class="done"></i><i></i></div>
+          <div class="screen-body">
+            <p class="step-label">第 2–3 步 / 3 · 右侧太阳穴</p>
+            <div class="section"><h3>疼痛强度</h3><div class="intensity-grid"><button class="intensity"><strong>1</strong><small>轻微</small></button><button class="intensity"><strong>3</strong><small>能忍受</small></button><button class="intensity"><strong>5</strong><small>影响做事</small></button><button class="intensity active"><strong>7</strong><small>很难受</small></button><button class="intensity"><strong>9</strong><small>无法忍受</small></button></div><p class="hint" style="margin-top:8px">口语化五级选择，后台映射至 0–10</p></div>
+            <div class="section"><h3>这次是什么状态？</h3><div class="option-list"><button class="option active"><i class="radio"></i><span><b>刚开始</b><br><span class="hint">从现在开始计时</span></span></button><button class="option"><i class="radio"></i><span><b>已经一会儿</b><br><span class="hint">稍后可补准确时间</span></span></button><button class="option"><i class="radio"></i><span><b>已经结束</b><br><span class="hint">补记昨天、前天或自定义时间</span></span></button></div></div>
+            <div class="note-callout">先保存，舒服一点后再补充感受、用药和缓解方式。</div>
+            <button class="btn primary" style="margin-top:18px" data-go="saved">保存这次记录</button>
+          </div>
+        </section>
+
+        <section class="screen" id="saved">
+          <header class="appbar"><span style="width:40px"></span><h2>记录已保存</h2><button class="icon-btn" data-go="home">×</button></header>
+          <div class="screen-body success">
+            <div class="check">✓</div><h3>已经帮你记下来了</h3><p class="hint">这次疼痛将保持“进行中”，之后只需记录变化。</p>
+            <div class="card summary-card"><div class="summary-line"><span>位置</span><b>右侧太阳穴</b></div><div class="summary-line"><span>强度</span><b>7 / 10 · 很难受</b></div><div class="summary-line"><span>开始</span><b>刚刚</b></div><div class="summary-line"><span>状态</span><span class="badge live">进行中</span></div></div>
+            <div class="stack"><button class="btn primary" data-go="ongoing">补充感受 / 用药</button><button class="btn" data-go="home">先退出，稍后补充</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="ongoing">
+          <header class="appbar"><button class="icon-btn back" data-go="home">‹</button><div><span class="eyebrow">进行中 · 42 分钟</span><h2>右侧太阳穴疼痛</h2></div><button class="icon-btn">•••</button></header>
+          <div class="screen-body">
+            <div class="card ongoing section"><div class="row between"><span>当前强度</span><b style="font-size:26px;color:var(--accent)">7 / 10</b></div><p class="hint">14:20 开始 · 跳痛</p></div>
+            <div class="section"><h3>现在要记录什么？</h3><div class="stack"><button class="card row between" data-toast="已进入强度变化"><span><b>强度有变化</b><br><span class="hint">例如 7 降到 3</span></span><span>›</span></button><button class="card row between" data-toast="已进入添加位置"><span><b>位置有变化</b><br><span class="hint">扩散或牵连到其他部位</span></span><span>›</span></button><button class="card row between" data-toast="已进入用药记录"><span><b>服药或缓解动作</b><br><span class="hint">用药、休息、冷敷、热敷</span></span><span>›</span></button></div></div>
+            <div class="section"><h3>事件时间线</h3><div class="timeline"><div class="event"><time>14:20</time><b>右侧太阳穴 · 7/10</b><span class="hint">疼痛开始</span></div><div class="event"><time>刚刚</time><b>等待下一次变化</b><span class="hint">只补充变化，不必重填</span></div></div></div>
+            <div class="btn-row"><button class="btn" data-toast="补充表单已打开">详细补充</button><button class="btn primary" data-go="detail">结束这次疼痛</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="history">
+          <header class="appbar"><h2>疼痛记录</h2><button class="icon-btn">⌕</button></header>
+          <div class="screen-body with-tabs">
+            <div class="row between section"><button class="pill">‹</button><b>2026 年 9 月</b><button class="pill">›</button></div>
+            <div class="calendar section"><b>一</b><b>二</b><b>三</b><b>四</b><b>五</b><b>六</b><b>日</b><span class="day">1</span><span class="day">2</span><span class="day has">3</span><span class="day">4</span><span class="day">5</span><span class="day has">6</span><span class="day">7</span><span class="day">8</span><span class="day has">9</span><span class="day">10</span><span class="day">11</span><span class="day">12</span><span class="day has">13</span><span class="day">14</span><span class="day">15</span><span class="day has">16</span><span class="day">17</span><span class="day">18</span><span class="day">19</span><span class="day has">20</span><span class="day today">21</span></div>
+            <div class="row between"><h3>最近记录</h3><span class="hint">共 8 次</span></div>
+            <div class="stack"><button class="card row between" data-go="ongoing"><span><b>今天 · 右侧太阳穴</b><br><span class="hint">14:20 · 7/10 · 进行中</span></span><span class="badge live">进行中</span></button><button class="card row between" data-go="detail"><span><b>9 月 20 日 · 头部 + 颈部</b><br><span class="hint">持续 1 小时 50 分 · 最高 6/10</span></span><span>›</span></button><button class="card row between" data-go="detail"><span><b>9 月 16 日 · 右膝</b><br><span class="hint">持续 35 分 · 最高 4/10</span></span><span>›</span></button></div>
+          </div>
+          <nav class="tabbar"><button class="tab" data-go="home"><b>⌂</b>首页</button><button class="tab active" data-go="history"><b>▦</b>记录</button><button class="tab" data-go="insights"><b>⌁</b>趋势</button><button class="tab" data-go="profile"><b>○</b>我的</button></nav>
+        </section>
+
+        <section class="screen" id="detail">
+          <header class="appbar"><button class="icon-btn back" data-go="history">‹</button><h2>单次记录</h2><button class="icon-btn">•••</button></header>
+          <div class="screen-body">
+            <div class="row between section"><div><b>9 月 20 日 19:10</b><p class="hint">已结束 · 持续 1 小时 50 分</p></div><span class="badge">完整记录</span></div>
+            <div class="card section"><div class="row between"><span><b>头部 + 颈部</b><br><span class="hint">右侧 · 深处 · 跳痛 / 紧绷</span></span><b style="font-size:24px">6/10</b></div></div>
+            <div class="section"><h3>变化时间线</h3><div class="timeline"><div class="event"><time>19:10</time><b>太阳穴疼痛开始 · 6/10</b></div><div class="event"><time>19:35</time><b>牵连到右侧颈部</b><span class="hint">颈部 4/10 · 紧绷</span></div><div class="event"><time>19:50</time><b>服药</b><span class="hint">药物名称与剂量备注</span></div><div class="event"><time>20:30</time><b>下降到 2/10</b><span class="hint">主观效果：明显缓解</span></div><div class="event"><time>21:00</time><b>疼痛结束</b></div></div></div>
+            <div class="stack"><button class="btn" data-toast="补充记录已打开">补充或修改</button><button class="btn primary" data-go="report">生成本次就医摘要</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="insights">
+          <header class="appbar"><h2>疼痛趋势</h2><button class="icon-btn">ⓘ</button></header>
+          <div class="screen-body with-tabs">
+            <div class="row gap section"><button class="pill active">近 30 天</button><button class="pill">近 3 个月</button><button class="pill">自定义</button></div>
+            <div class="card section"><div class="row between"><b>强度变化</b><span class="hint">共 8 次</span></div><div class="chart"><svg viewBox="0 0 300 120" preserveAspectRatio="none"><polyline points="0,87 45,65 90,76 135,44 180,55 225,32 270,70 300,48" fill="none" stroke="#25282b" stroke-width="3"/><g fill="#fff" stroke="#25282b" stroke-width="2"><circle cx="0" cy="87" r="4"/><circle cx="45" cy="65" r="4"/><circle cx="90" cy="76" r="4"/><circle cx="135" cy="44" r="4"/><circle cx="180" cy="55" r="4"/><circle cx="225" cy="32" r="4"/><circle cx="270" cy="70" r="4"/><circle cx="300" cy="48" r="4"/></g></svg></div><p class="hint" style="margin-top:12px">仅展示你的记录变化，不推断病因。</p></div>
+            <div class="card section"><b>常见疼痛位置</b><div class="bar-chart"><div class="bar" style="height:88px"><b>5</b><span>太阳穴</span></div><div class="bar" style="height:55px"><b>3</b><span>颈部</span></div><div class="bar" style="height:36px"><b>2</b><span>右膝</span></div></div></div>
+            <button class="btn primary" data-go="report">生成就医摘要</button>
+          </div>
+          <nav class="tabbar"><button class="tab" data-go="home"><b>⌂</b>首页</button><button class="tab" data-go="history"><b>▦</b>记录</button><button class="tab active" data-go="insights"><b>⌁</b>趋势</button><button class="tab" data-go="profile"><b>○</b>我的</button></nav>
+        </section>
+
+        <section class="screen" id="report">
+          <header class="appbar"><button class="icon-btn back" data-go="insights">‹</button><h2>就医摘要</h2><button class="icon-btn">?</button></header>
+          <div class="screen-body">
+            <div class="card section"><div class="row between"><span><b>时间范围</b><br><span class="hint">2026/08/22 — 2026/09/21</span></span><span>›</span></div></div>
+            <div class="section"><h3>选择包含内容</h3><div class="stack"><button class="card row between"><span>疼痛位置与强度</span><i class="checkbox on">✓</i></button><button class="card row between"><span>发作次数与持续时间</span><i class="checkbox on">✓</i></button><button class="card row between"><span>用药与缓解效果</span><i class="checkbox on">✓</i></button><button class="card row between"><span>私人备注</span><i class="checkbox"></i></button></div></div>
+            <div class="card report-preview section"><h4>摘要预览</h4><p>近 30 天共记录 8 次疼痛：</p><ul><li>最常见位置：右侧太阳穴（5 次）</li><li>最高记录强度：7/10</li><li>平均持续时间：1 小时 12 分</li><li>3 次记录了用药，其中 2 次标记明显缓解</li></ul><p class="hint">本摘要来自用户记录，仅供就医沟通参考，不构成诊断。</p></div>
+            <button class="btn primary" data-toast="摘要已生成，可保存或发送">生成并分享摘要</button>
+          </div>
+        </section>
+
+        <section class="screen" id="profile">
+          <header class="appbar"><h2>我的</h2><span style="width:40px"></span></header>
+          <div class="screen-body with-tabs">
+            <div class="card section"><div class="row gap"><div class="mini-body" style="width:54px;height:54px">○</div><div><b>游客记录</b><p class="hint">数据仅保存在本设备</p></div></div><button class="btn" style="margin-top:14px" data-toast="同步说明已打开">了解并开启同步</button></div>
+            <div class="section"><h3>记录偏好</h3><div class="stack"><button class="card row between"><span>关注部位</span><span>2 个 ›</span></button><button class="card row between"><span>暗夜模式</span><span class="switch"><i></i></span></button><button class="card row between"><span>大字与低刺激显示</span><span>›</span></button></div></div>
+            <div class="section"><h3>数据与隐私</h3><div class="stack"><button class="card row between" data-toast="数据导出准备中"><span>导出我的全部数据</span><span>›</span></button><button class="card row between"><span>隐私说明</span><span>›</span></button><button class="card row between"><span>就医摘要默认字段</span><span>›</span></button></div></div>
+            <button class="btn danger" data-toast="删除前将再次确认">删除全部健康记录</button>
+          </div>
+          <nav class="tabbar"><button class="tab" data-go="home"><b>⌂</b>首页</button><button class="tab" data-go="history"><b>▦</b>记录</button><button class="tab" data-go="insights"><b>⌁</b>趋势</button><button class="tab active" data-go="profile"><b>○</b>我的</button></nav>
+        </section>
+
+        <div class="toast" role="status"></div>
+      </div>
+    </section>
+
+    <aside class="panel annotation">
+      <span class="eyebrow">当前页面</span><h2 id="note-title">首页 / 关注部位</h2><div class="route" id="note-route">首页 → 选择关注部位</div>
+      <ul id="note-list"><li>首页直接呈现高频关注部位，减少每次从全身寻找的成本。</li><li>始终保留“记录其他部位”和“查看全身”。</li><li>进行中的事件在首屏持续可见。</li></ul>
+      <div class="rule"><b>线稿原则</b>身体图是核心操作面；大按钮、低信息密度；疼痛红只表达位置与强度，不承担普通装饰。</div>
+      <div class="rule"><b>产品边界</b>只呈现用户记录到的事实，不诊断病因，不给出具体药物推荐。</div>
+    </aside>
+  </main>
+  <script>
+    const notes={
+      home:['首页 / 关注部位','首页 → 选择关注部位',['首页直接呈现高频关注部位，减少每次从全身寻找的成本。','始终保留“记录其他部位”和“查看全身”。','进行中的事件在首屏持续可见。']],
+      locate:['选择疼痛位置','快速记录 1/3',['2D 中性人体支持正面 / 背面。','支持点选、范围涂抹和多个疼痛位置。','关注部位是快捷入口，不限制可记录范围。']],
+      describe:['强度与状态','快速记录 2–3/3',['五级口语化强度映射到 0–10。','只要求“强度 + 时间状态”即可保存。','剩余感受、用药、诱因均可稍后补充。']],
+      saved:['快速保存结果','保存 → 退出或补充',['明确反馈已经保存，降低发作时的不确定感。','“先退出”与“继续补充”具有同等可见性。','刚开始的事件自动进入“进行中”。']],
+      ongoing:['进行中 / 补充变化','事件 → 记录变化 → 结束',['更新事件只补充变化，不重填整张表。','强度、位置、用药 / 缓解动作是三个高频入口。','时间线把一次发作串成可回顾的过程。']],
+      history:['历史 / 日历','底部「记录」',['日历用轻量标记显示有记录的日期。','最近记录突出进行中事件。','点击任意记录进入单次详情。']],
+      detail:['单次记录详情','历史 → 记录详情',['身体位置、最高强度、持续时间置于上部。','变化时间线统一呈现扩散、用药、缓解和结束。','详情可继续补充，也可生成单次摘要。']],
+      insights:['趋势','底部「趋势」',['V1 只展示基础强度、持续时间和常见位置。','所有表述限定为“用户记录到的变化”。','摘要入口与趋势形成就医沟通闭环。']],
+      report:['就医摘要','趋势 / 单次记录 → 摘要',['用户先选择日期范围和需要分享的字段。','敏感备注默认不进入报告。','预览先于分享，并明确“不构成诊断”。']],
+      profile:['数据与隐私','底部「我的」',['游客可以直接体验，再选择是否同步。','提供暗夜、大字和低刺激显示入口。','用户可以导出或删除全部数据。']]
+    };
+    const screens=[...document.querySelectorAll('.screen')], links=[...document.querySelectorAll('.flow-link')];
+    function go(id){screens.forEach(s=>s.classList.toggle('active',s.id===id));links.forEach(l=>l.classList.toggle('active',l.dataset.go===id));const n=notes[id];if(n){document.querySelector('#note-title').textContent=n[0];document.querySelector('#note-route').textContent=n[1];document.querySelector('#note-list').innerHTML=n[2].map(x=>'<li>'+x+'</li>').join('')}document.querySelector('#'+id+' .screen-body')?.scrollTo(0,0)}
+    document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){go(g.dataset.go);return}const t=e.target.closest('[data-toast]');if(t){const toast=document.querySelector('.toast');toast.textContent=t.dataset.toast;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1600)}const choice=e.target.closest('.intensity,.option,.pill');if(choice&&choice.parentElement){[...choice.parentElement.children].forEach(x=>x.classList.remove('active'));choice.classList.add('active')}});
+  </script>
+</body>
+</html>

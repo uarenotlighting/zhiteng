@@ -1,0 +1,17 @@
+{
+  "bodyModelVersion": "zhiteng_blender_20260921",
+  "coordinateSystemVersion": "normalized_v1",
+  "pipeline": "blender",
+  "status": "exported",
+  "exportedAt": "2026-09-21T12:51:00.861022+00:00",
+  "layers": [
+    {
+      "id": "skin",
+      "file": "skin.glb",
+      "required": true,
+      "collection": "ZT_Skin"
+    }
+  ],
+  "license": "TBD",
+  "attribution": "TBD — see ATTRIBUTION.md"
+}
